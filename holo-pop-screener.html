@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Low-Pop Holo Screener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#E4E7E2; --surface:#FFFFFF; --ink:#15181C; --ink-soft:#5A6068;
+    --rule:#C7CCC6; --rule-soft:#E2E5E0;
+    --pass:#1E6B47; --pass-bg:#E2EFE8; --near:#7A5B00; --near-bg:#F4EDD8;
+    --out:#71767C; --queue:#2B4A73; --queue-bg:#E1E8F1;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#14171A; --surface:#1C2024; --ink:#E8EBE7; --ink-soft:#9AA1A8;
+    --rule:#333A40; --rule-soft:#272C31; --pass:#6FCF9B; --pass-bg:#1B2E24;
+    --near:#D9B85C; --near-bg:#2C2718; --out:#868D94; --queue:#8FB3DE; --queue-bg:#1B242F;
+  }}
+  :root[data-theme="dark"]{
+    --ground:#14171A; --surface:#1C2024; --ink:#E8EBE7; --ink-soft:#9AA1A8;
+    --rule:#333A40; --rule-soft:#272C31; --pass:#6FCF9B; --pass-bg:#1B2E24;
+    --near:#D9B85C; --near-bg:#2C2718; --out:#868D94; --queue:#8FB3DE; --queue-bg:#1B242F;
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+    font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1120px;margin:0 auto;padding:26px 18px 60px}
+  h1{font-family:Spectral,Georgia,serif;font-weight:600;font-size:clamp(26px,4.4vw,36px);
+    line-height:1.1;margin:0 0 5px;letter-spacing:-0.01em}
+  .sub{color:var(--ink-soft);max-width:62ch;margin:0 0 24px;font-size:14.5px}
+  h2{font-family:Spectral,Georgia,serif;font-weight:600;font-size:19px;margin:34px 0 10px}
+  .note{color:var(--ink-soft);font-size:13.5px;max-width:72ch;margin:0 0 12px}
+
+  /* header: kpis beside chart, not full-bleed */
+  .head{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;align-items:start}
+  @media (max-width:760px){.head{grid-template-columns:1fr}}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  .kpi{background:var(--surface);padding:11px 13px}
+  .kpi b{display:block;font-family:Spectral,Georgia,serif;font-size:23px;font-weight:600;line-height:1.1}
+  .kpi span{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:3px}
+  .kpi.win b{color:var(--pass)}
+  .kpi.wide{grid-column:1/-1}
+  .kpi.wide b{font-size:16px;font-weight:500;font-family:inherit}
+  .chartbox{background:var(--surface);border:1px solid var(--rule);padding:12px 14px 6px}
+  .charthead{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:2px}
+  .charthead h3{margin:0;font-size:13.5px;font-weight:600}
+  .charthead select{min-width:0;max-width:52%;padding:3px 6px;font-size:12.5px}
+  .chartbox h3{margin:0 0 2px;font-size:13.5px;font-weight:600}
+  .chartbox p{margin:0 0 6px;font-size:12.5px;color:var(--ink-soft)}
+  .plot{position:relative}
+  .tip{position:absolute;z-index:5;pointer-events:none;background:var(--ink);color:var(--ground);
+    padding:7px 9px;font-size:12px;line-height:1.35;max-width:230px;
+    box-shadow:0 2px 10px rgba(0,0,0,.25)}
+  .tip b{display:block;font-size:12.5px;margin-bottom:3px}
+  .tip span{display:block;color:var(--rule)}
+  circle.pt{cursor:pointer}
+  circle.pt:hover{stroke-width:2.6}
+  svg{display:block;width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink-soft);padding:4px 0 8px}
+  .legend i{display:inline-block;width:9px;height:9px;margin-right:5px;vertical-align:-1px}
+  .funnelline{display:flex;gap:2px;margin-top:8px;height:6px}
+  .funnelline span{display:block}
+
+  .controls{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;
+    padding:14px 16px;background:var(--surface);border:1px solid var(--rule);margin-top:16px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--ink-soft)}
+  input[type=number],select{font:inherit;font-variant-numeric:tabular-nums;color:var(--ink);
+    background:var(--ground);border:1px solid var(--rule);padding:6px 8px;min-width:100px}
+  input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-visible,
+  summary:focus-visible{outline:2px solid var(--queue);outline-offset:2px}
+  button{font:inherit;font-weight:500;cursor:pointer;color:var(--ink);
+    background:var(--ground);border:1px solid var(--rule);padding:7px 13px}
+  button.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+  button:hover{border-color:var(--ink-soft)}
+
+  .scroll{overflow-x:auto;border:1px solid var(--rule);background:var(--surface);margin-top:12px}
+  table{border-collapse:collapse;width:100%;min-width:720px}
+  th,td{text-align:right;padding:8px 11px;border-bottom:1px solid var(--rule-soft);white-space:nowrap}
+  th{font-size:12px;font-weight:600;color:var(--ink-soft);border-bottom:1px solid var(--rule)}
+  th:first-child,td:first-child{text-align:left}
+  td.card{white-space:normal;min-width:170px}
+  a{color:inherit}
+  td.card a{text-decoration:none;border-bottom:1px solid var(--rule)}
+  td.card a:hover{border-bottom-color:var(--ink)}
+  .setname{display:block;font-size:12px;color:var(--ink-soft)}
+  .est{color:var(--ink-soft);font-style:italic}
+  .tag{display:inline-block;font-size:11.5px;padding:2px 7px;border-radius:2px;font-weight:500}
+  .t-pass{background:var(--pass-bg);color:var(--pass)}
+  .t-near{background:var(--near-bg);color:var(--near)}
+  .t-queue{background:var(--queue-bg);color:var(--queue)}
+  .t-out{color:var(--out)}
+  tr.out td{color:var(--out)}
+  .empty{padding:28px 18px;color:var(--ink-soft);background:var(--surface);
+    border:1px solid var(--rule);margin-top:12px}
+
+  /* expandable sets */
+  details{background:var(--surface);border:1px solid var(--rule);margin-bottom:8px}
+  summary{cursor:pointer;padding:11px 14px;display:flex;flex-wrap:wrap;gap:6px 14px;
+    align-items:baseline;justify-content:space-between;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+";font-family:Spectral,Georgia,serif;font-size:17px;
+    width:14px;flex:0 0 14px;color:var(--ink-soft)}
+  details[open] summary::before{content:"\2013"}
+  .sname{flex:1 1 auto;font-weight:500}
+  .sname em{font-style:normal;color:var(--ink-soft);font-weight:400;font-size:12.5px;margin-left:7px}
+  .sstate{font-size:12.5px;color:var(--ink-soft)}
+  details .scroll{border:0;border-top:1px solid var(--rule);margin:0}
+  details table{min-width:660px}
+
+  .panel{background:var(--surface);border:1px solid var(--rule);padding:16px}
+  .panel p{margin:0 0 10px;color:var(--ink-soft);max-width:70ch;font-size:14px}
+  textarea{font:inherit;width:100%;min-height:110px;padding:9px;color:var(--ink);
+    background:var(--ground);border:1px solid var(--rule);resize:vertical}
+  .row{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:10px}
+  .msg{font-size:13.5px;margin-top:9px;min-height:20px}
+  .msg.ok{color:var(--pass)} .msg.err{color:var(--near)}
+  footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--rule);
+    color:var(--ink-soft);font-size:13px;max-width:74ch}
+  footer p{margin:0 0 9px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Low-pop holo screener</h1>
+  <p class="sub">Holo rares, secret rares and special variants from English sets released before 2016,
+  screened for thin PSA populations at a price you would actually pay. All figures from PriceCharting.</p>
+
+  <div class="head">
+    <div class="kpis" id="kpis"></div>
+    <div class="chartbox">
+      <div class="charthead">
+        <h3>Population against price</h3>
+        <select id="scope" aria-label="Limit the chart to a set or era"></select>
+      </div>
+      <p id="scatterCaption"></p>
+      <div id="scatter" class="plot"><div id="tip" class="tip" hidden></div></div>
+      <div class="legend">
+        <span><i style="background:var(--pass)"></i>Clears both</span>
+        <span><i style="background:var(--near)"></i>Pop clears only</span>
+        <span><i style="background:var(--out)"></i>Screened out</span>
+        <span><i style="border:1.5px solid var(--out)"></i>Population estimated</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="field">
+      <label for="maxPop">Highest PSA population</label>
+      <input type="number" id="maxPop" value="20" min="0" max="500">
+    </div>
+    <div class="field">
+      <label for="maxPrice">Highest price (USD)</label>
+      <input type="number" id="maxPrice" value="200" min="0" max="100000" step="25">
+    </div>
+    <div class="field">
+      <label for="grade">Grade</label>
+      <select id="grade">
+        <option value="either">PSA 9 or PSA 10</option>
+        <option value="10">PSA 10 only</option>
+        <option value="9">PSA 9 only</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="show">Show</label>
+      <select id="show">
+        <option value="live">Clears both gates, plus near misses</option>
+        <option value="all">Every card checked</option>
+        <option value="queue">Worth a population check</option>
+      </select>
+    </div>
+    <button id="reset">Reset filters</button>
+  </div>
+
+  <div id="results"></div>
+
+  <h2>Set coverage</h2>
+  <p class="note">Every holo I have pulled, by set. Open a set to see its cards. A PSA figure appears
+  only where I have read the card's own population page, which reports PSA and CGC separately. The
+  combined column is the set-level figure, PSA and CGC added together, which is all the set page gives.</p>
+  <div id="sets"></div>
+
+  <h2>Add verified PSA numbers</h2>
+  <div class="panel">
+    <p>This page cannot read PriceCharting directly, because browsers block requests from one site to
+    another. Open a card's population page from any table here, copy its grade table, and paste it below
+    to record the exact PSA split. Or copy the scan request into our chat and I will work through the
+    next set.</p>
+    <div class="field">
+      <label for="target">Card to update</label>
+      <select id="target"></select>
+    </div>
+    <textarea id="paste" style="margin-top:12px" placeholder="Paste the grade table from the card's population page, for example:&#10;&#10;| 9  | 19 | 48 | 67 | $286.77 |&#10;| 10 | 6  | 12 | 18 | $5917.00 |"></textarea>
+    <div class="row">
+      <button class="primary" id="save">Save PSA numbers</button>
+      <button id="copyPrompt">Copy scan request</button>
+      <button id="copyData">Copy all data as JSON</button>
+      <button id="clear">Clear my saved edits</button>
+    </div>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  </div>
+
+  <footer>
+    <p>Populations are refreshed monthly by PriceCharting, and half grades fold into the nearest whole
+    grade, so an 8.5 counts in 8.</p>
+    <p>The PSA 10 column is PSA-specific, but the Grade 9 column is a blended price covering PSA, BGS and
+    CGC slabs. A true PSA 9 usually sells above a CGC 9, so treat the Grade 9 figures as slightly soft.
+    Prices in italics are PriceCharting estimates rather than recorded sales, which is common at PSA 10 on
+    cards nobody has sold recently.</p>
+    <p>Where a card has no PSA figure, the screener estimates it at 45% of the combined PSA and CGC count.
+    That is deliberately generous: the one card measured directly, Gardevoir, came in at 28%. A card is
+    only flagged as worth a population check if even that generous estimate lands under your limit and
+    the price already clears.</p>
+  </footer>
+</div>
+
+<script>
+const POP = "https://www.pricecharting.com/pop/item/";
+const SHARE = 0.45; // generous PSA share of a combined PSA+CGC count
+
+const DATA = [
+  {
+    set:"Base Set", year:1999, era:"WotC", slug:"pokemon-base-set",
+    note:"Unlimited holo rares. Prices pulled; populations not split out because every one fails on price or is a known four-figure PSA 9 population.",
+    cards:[
+      {n:"Alakazam",  num:"1",  s:"alakazam-1",  p9:322.50, p10:2553.23},
+      {n:"Blastoise", num:"2",  s:"blastoise-2", p9:950.00, p10:6897.39},
+      {n:"Chansey",   num:"3",  s:"chansey-3",   p9:295.50, p10:9300.00},
+      {n:"Charizard", num:"4",  s:"charizard-4", p9:2976.69,p10:12275.00},
+      {n:"Clefairy",  num:"5",  s:"clefairy-5",  p9:182.78, p10:4334.51},
+      {n:"Gyarados",  num:"6",  s:"gyarados-6",  p9:256.76, p10:2400.00},
+      {n:"Hitmonchan",num:"7",  s:"hitmonchan-7",p9:170.00, p10:2335.65},
+      {n:"Machamp",   num:"8",  s:"machamp-8"},
+      {n:"Magneton",  num:"9",  s:"magneton-9",  p9:170.00, p10:2002.00},
+      {n:"Mewtwo",    num:"10", s:"mewtwo-10",   p9:397.10, p10:4125.00},
+      {n:"Nidoking",  num:"11", s:"nidoking-11", p9:155.00, p10:1130.23},
+      {n:"Ninetales", num:"12", s:"ninetales-12",p9:135.00, p10:1700.00},
+      {n:"Poliwrath", num:"13", s:"poliwrath-13",p9:138.80, p10:1125.00},
+      {n:"Raichu",    num:"14", s:"raichu-14",   p9:359.56, p10:3164.08},
+      {n:"Venusaur",  num:"15", s:"venusaur-15", p9:519.11, p10:3262.50},
+      {n:"Zapdos",    num:"16", s:"zapdos-16",   p9:176.25, p10:1890.00}
+    ]
+  },
+  {
+    set:"Skyridge", year:2002, era:"WotC e-Card", slug:"pokemon-skyridge",
+    note:"All 32 H-series holos, the six crystal cards and both box toppers. Populations pulled; the H-series is so heavily graded that none needed a price check.",
+    cards:[
+      {n:"Alakazam",   num:"H1", s:"alakazam-h1",  c9:300, c10:186},
+      {n:"Arcanine",   num:"H2", s:"arcanine-h2",  c9:300, c10:178},
+      {n:"Articuno",   num:"H3", s:"articuno-h3",  c9:300, c10:195},
+      {n:"Beedrill",   num:"H4", s:"beedrill-h4",  c9:273, c10:148},
+      {n:"Crobat",     num:"H5", s:"crobat-h5",    c9:283, c10:167},
+      {n:"Dewgong",    num:"H6", s:"dewgong-h6",   c9:272, c10:135},
+      {n:"Flareon",    num:"H7", s:"flareon-h7",   c9:350, c10:137},
+      {n:"Forretress", num:"H8", s:"forretress-h8",c9:246, c10:101},
+      {n:"Gengar",     num:"H9", s:"gengar-h9",    c9:401, c10:159},
+      {n:"Gyarados",   num:"H10",s:"gyarados-h10", c9:388, c10:179},
+      {n:"Houndoom",   num:"H11",s:"houndoom-h11", c9:351, c10:128},
+      {n:"Jolteon",    num:"H12",s:"jolteon-h12",  c9:325, c10:212},
+      {n:"Kabutops",   num:"H13",s:"kabutops-h13", c9:281, c10:218},
+      {n:"Ledian",     num:"H14",s:"ledian-h14",   c9:265, c10:182},
+      {n:"Machamp",    num:"H15",s:"machamp-h15",  c9:272, c10:220},
+      {n:"Magcargo",   num:"H16",s:"magcargo-h16", c9:268, c10:122},
+      {n:"Magcargo",   num:"H17",s:"magcargo-h17", c9:257, c10:133},
+      {n:"Magneton",   num:"H18",s:"magneton-h18", c9:268, c10:112},
+      {n:"Magneton",   num:"H19",s:"magneton-h19", c9:231, c10:113},
+      {n:"Moltres",    num:"H20",s:"moltres-h20",  c9:324, c10:168},
+      {n:"Nidoqueen",  num:"H21",s:"nidoqueen-h21",c9:299, c10:203},
+      {n:"Piloswine",  num:"H22",s:"piloswine-h22",c9:235, c10:172},
+      {n:"Politoed",   num:"H23",s:"politoed-h23", c9:262, c10:197},
+      {n:"Poliwrath",  num:"H24",s:"poliwrath-h24",c9:296, c10:173},
+      {n:"Raichu",     num:"H25",s:"raichu-h25",   c9:267, c10:170},
+      {n:"Raikou",     num:"H26",s:"raikou-h26",   c9:340, c10:205},
+      {n:"Rhydon",     num:"H27",s:"rhydon-h27",   c9:246, c10:227},
+      {n:"Starmie",    num:"H28",s:"starmie-h28",  c9:318, c10:176},
+      {n:"Steelix",    num:"H29",s:"steelix-h29",  c9:271, c10:190},
+      {n:"Umbreon",    num:"H30",s:"umbreon-h30",  c9:432, c10:183},
+      {n:"Vaporeon",   num:"H31",s:"vaporeon-h31", c9:367, c10:153},
+      {n:"Xatu",       num:"H32",s:"xatu-h32",     c9:280, c10:144},
+      {n:"Celebi [Crystal]",   num:"145",s:"celebi-145",   c9:284, c10:248},
+      {n:"Charizard [Crystal]",num:"146",s:"charizard-146",c9:363, c10:298},
+      {n:"Crobat [Crystal]",   num:"147",s:"crobat-147",   c9:297, c10:129},
+      {n:"Golem [Crystal]",    num:"148",s:"golem-148",    c9:414, c10:304},
+      {n:"Ho-Oh [Crystal]",    num:"149",s:"ho-oh-149",    c9:338, c10:127},
+      {n:"Kabutops [Crystal]", num:"150",s:"kabutops-150", c9:443, c10:260},
+      {n:"Charizard [Box Topper]",num:"9", s:"charizard-box-topper-9",c9:3, c10:1},
+      {n:"Ho-oh [Box Topper]",    num:"11",s:"ho-oh-box-topper-11",   c9:2, c10:2}
+    ]
+  },
+  {
+    set:"EX Ruby & Sapphire", year:2003, era:"EX", slug:"pokemon-ruby-&-sapphire",
+    note:"All 14 holo rares and all 8 ex cards, with both prices and populations. Gardevoir is the only card whose PSA split I have read directly.",
+    cards:[
+      {n:"Hariyama",        num:"8",  s:"hariyama-8",       c9:156, c10:51,  p9:49.00,  p10:1025.00},
+      {n:"Camerupt",        num:"4",  s:"camerupt-4",       c9:164, c10:56,  p9:49.99,  p10:553.41},
+      {n:"Manectric",       num:"9",  s:"manectric-9",      c9:167, c10:72,  p9:61.91,  p10:749.54},
+      {n:"Mightyena",       num:"10", s:"mightyena-10",     c9:197, c10:57,  p9:64.26,  p10:1049.50},
+      {n:"Beautifly",       num:"2",  s:"beautifly-2",      c9:178, c10:46,  p9:73.02,  p10:453.47},
+      {n:"Slaking",         num:"12", s:"slaking-12",       c9:130, c10:43,  p9:79.49,  p10:830.00},
+      {n:"Dustox",          num:"6",  s:"dustox-6",         c9:161, c10:29,  p9:94.97,  p10:499.99},
+      {n:"Wailord",         num:"14", s:"wailord-14",       c9:159, c10:48,  p9:95.19,  p10:938.17},
+      {n:"Delcatty",        num:"5",  s:"delcatty-5",       c9:150, c10:47,  p9:105.00, p10:1000.31},
+      {n:"Aggron",          num:"1",  s:"aggron-1",         c9:169, c10:44,  p9:137.50, p10:948.29},
+      {n:"Chansey ex",      num:"96", s:"chansey-ex-96",    c9:478, c10:78,  p9:262.80, p10:1750.00},
+      {n:"Gardevoir [Holo]",num:"7",  s:"gardevoir-holo-7", c9:67,  c10:18,  p9:286.77, p10:5917.00, psa9:19, psa10:6, est10:true},
+      {n:"Magmar ex",       num:"100",s:"magmar-ex-100",    c9:480, c10:93,  p9:325.34, p10:2825.00},
+      {n:"Blaziken [Holo]", num:"3",  s:"blaziken-holo-3",  c9:95,  c10:28,  p9:366.94, p10:4938.50},
+      {n:"Sneasel ex",      num:"103",s:"sneasel-ex-103",   c9:412, c10:83,  p9:379.29, p10:3950.00},
+      {n:"Swampert",        num:"13", s:"swampert-13",      c9:265, c10:64,  p9:405.10, p10:4978.92},
+      {n:"Sceptile",        num:"11", s:"sceptile-11",      c9:236, c10:45,  p9:421.08, p10:5000.00},
+      {n:"Electabuzz ex",   num:"97", s:"electabuzz-ex-97", c9:394, c10:79,  p9:464.53, p10:1750.00},
+      {n:"Hitmonchan ex",   num:"98", s:"hitmonchan-ex-98", c9:460, c10:74,  p9:557.32, p10:985.00},
+      {n:"Scyther ex",      num:"102",s:"scyther-ex-102",   c9:505, c10:92,  p9:593.41, p10:3100.02},
+      {n:"Lapras ex",       num:"99", s:"lapras-ex-99",     c9:508, c10:81,  p9:693.44, p10:938.25},
+      {n:"Mewtwo ex",       num:"101",s:"mewtwo-ex-101",    c9:567, c10:106, p9:1999.50,p10:24049.50}
+    ]
+  },
+  {
+    set:"EX Sandstorm", year:2003, era:"EX", slug:"pokemon-sandstorm",
+    note:"All 14 holo rares, all 7 ex cards and the prerelease Armaldo. Espeon #16 and Umbreon #24 are non-holo rares in this set, so they fall outside the filter. Populations and prices both pulled. Six cards cleared the population gate on estimate, then every one failed on price at PSA 10.",
+    cards:[
+      {n:"Armaldo [Prerelease]",num:"1",  s:"armaldo-prerelease-1",c9:76,  c10:32, p9:231.00, p10:400.00},
+      {n:"Solrock",             num:"13", s:"solrock-13",          c9:125, c10:34, p9:74.99, p10:1605.00},
+      {n:"Zangoose",            num:"14", s:"zangoose-14",         c9:106, c10:36, p9:145.98, p10:336.25},
+      {n:"Sableye",             num:"10", s:"sableye-10",          c9:148, c10:37, p9:498.60, p10:4550.00},
+      {n:"Lunatone",            num:"8",  s:"lunatone-8",          c9:143, c10:42, p9:98.85, p10:557.12},
+      {n:"Cacturne",            num:"2",  s:"cacturne-2",          c9:128, c10:43, p9:74.50, p10:805.50},
+      {n:"Shiftry",             num:"12", s:"shiftry-12",          c9:145, c10:50, p9:89.43, p10:1125.00},
+      {n:"Armaldo",             num:"1",  s:"armaldo-1",           c9:196, c10:52, p9:107.50, p10:1307.49},
+      {n:"Ludicolo",            num:"7",  s:"ludicolo-7",          c9:135, c10:54, p9:141.34, p10:1639.44},
+      {n:"Seviper",             num:"11", s:"seviper-11",          c9:136, c10:55, p9:116.61, p10:1113.88},
+      {n:"Jolteon",             num:"6",  s:"jolteon-6",           c9:291, c10:59, p9:293.37, p10:2300.00},
+      {n:"Mawile",              num:"9",  s:"mawile-9",            c9:153, c10:63, p9:104.04, p10:1000.00},
+      {n:"Dusclops",            num:"4",  s:"dusclops-4",          c9:136, c10:64, p9:88.84, p10:1056.75},
+      {n:"Flareon",             num:"5",  s:"flareon-5",           c9:250, c10:86, p9:312.50, p10:2698.92},
+      {n:"Cradily",             num:"3",  s:"cradily-3",           c9:169, c10:100, p9:57.78, p10:602.19},
+      {n:"Wailord ex",          num:"100",s:"wailord-ex-100",      c9:435, c10:93, p9:742.40, p10:8600.00},
+      {n:"Gardevoir ex",        num:"96", s:"gardevoir-ex-96",     c9:480, c10:95, p9:728.47, p10:6307.86},
+      {n:"Aggron ex",           num:"95", s:"aggron-ex-95",        c9:422, c10:116, p9:390.69, p10:1007.42},
+      {n:"Kabutops ex",         num:"97", s:"kabutops-ex-97",      c9:471, c10:131, p9:387.92, p10:2939.00},
+      {n:"Aerodactyl ex",       num:"94", s:"aerodactyl-ex-94",    c9:515, c10:142, p9:479.50, p10:4000.00},
+      {n:"Typhlosion ex",       num:"99", s:"typhlosion-ex-99",    c9:574, c10:144, p9:523.22, p10:3270.83},
+      {n:"Raichu ex",           num:"98", s:"raichu-ex-98",        c9:553, c10:153, p9:887.50, p10:6068.58}
+    ]
+  }
+];
+
+const QUEUED = [
+  ["EX Dragon",2003],["EX Team Magma vs Team Aqua",2004],
+  ["EX Hidden Legends",2004],["EX FireRed & LeafGreen",2004],["EX Team Rocket Returns",2004],
+  ["EX Deoxys",2005],["EX Emerald",2005],["EX Unseen Forces",2005],["EX Delta Species",2005],
+  ["EX Legend Maker",2006],["EX Holon Phantoms",2006],["EX Crystal Guardians",2006],
+  ["EX Dragon Frontiers",2006],["EX Power Keepers",2007]
+];
+
+const KEY = "holoScreener:v2";
+const flatten = () => DATA.flatMap(s => s.cards.map(c => ({
+  ...c, set:s.set, era:s.era, setSlug:s.slug, id:s.slug+"/"+c.s
+})));
+let cards = flatten();
+
+function load(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(KEY)||"{}");
+    cards.forEach(c=>{ const v=saved[c.id]; if(v){
+      if(v.psa9!=null)c.psa9=v.psa9; if(v.psa10!=null)c.psa10=v.psa10;
+      if(v.p9!=null)c.p9=v.p9; if(v.p10!=null){c.p10=v.p10;c.est10=v.est10;}
+    }});
+  }catch(e){}
+}
+function save(){
+  try{
+    const out={};
+    cards.forEach(c=>{ if(c.psa9!=null||c.psa10!=null)
+      out[c.id]={psa9:c.psa9,psa10:c.psa10,p9:c.p9,p10:c.p10,est10:c.est10}; });
+    localStorage.setItem(KEY,JSON.stringify(out));
+  }catch(e){ note("Saved to the table, but this browser would not store it for next time.","err"); }
+}
+
+const el = id => document.getElementById(id);
+const money = n => n==null ? "—" : "$"+n.toLocaleString("en-US",{maximumFractionDigits:2});
+const confirmed = c => c.psa9!=null || c.psa10!=null;
+const pop = (c,g) => g==="10" ? (c.psa10!=null?c.psa10:(c.c10!=null?Math.round(c.c10*SHARE):null))
+                              : (c.psa9 !=null?c.psa9 :(c.c9 !=null?Math.round(c.c9 *SHARE):null));
+const isEstPop = (c,g) => g==="10" ? c.psa10==null : c.psa9==null;
+const price = (c,g) => g==="10" ? c.p10 : c.p9;
+
+function classify(c,maxPop,maxPrice,grade){
+  const grades = grade==="either" ? ["9","10"] : [grade];
+  let best="out";
+  for(const g of grades){
+    const pp=pop(c,g), pr=price(c,g);
+    if(pp==null||pr==null) continue;
+    const popOk=pp<=maxPop, priceOk=pr<=maxPrice;
+    if(popOk&&priceOk) return isEstPop(c,g) ? "queue" : "pass";
+    if(popOk&&best==="out") best="near";
+  }
+  return best;
+}
+
+function state(){ return {
+  maxPop:+el("maxPop").value||0, maxPrice:+el("maxPrice").value||0,
+  grade:el("grade").value, show:el("show").value }; }
+
+function buildScope(){
+  const eras=[...new Set(DATA.map(s=>s.era))];
+  el("scope").innerHTML =
+    `<option value="all">All sets</option>`
+    + `<optgroup label="Era">${eras.map(e=>`<option value="era:${e}">${e} era</option>`).join("")}</optgroup>`
+    + `<optgroup label="Set">${DATA.map(s=>`<option value="set:${s.slug}">${s.set}</option>`).join("")}</optgroup>`;
+}
+function inScope(c,scope){
+  if(scope==="all") return true;
+  if(scope.startsWith("era:")) return c.era===scope.slice(4);
+  return c.setSlug===scope.slice(4);
+}
+
+function drawScatter(scored,st){
+  const g = st.grade==="either" ? "9" : st.grade;
+  const scope = el("scope").value || "all";
+  const pts = scored.filter(({c})=>inScope(c,scope))
+    .map(({c,s})=>({c,s,x:price(c,g),y:pop(c,g),est:isEstPop(c,g)}))
+    .filter(p=>p.x!=null&&p.y!=null&&p.x>0);
+  const label = scope==="all" ? "Every holo on record"
+    : scope.startsWith("era:") ? "The "+scope.slice(4)+" era"
+    : DATA.find(s=>s.slug===scope.slice(4)).set;
+  el("scatterCaption").textContent = pts.length
+    ? `${label} at ${g==="10"?"PSA 10":"PSA 9"}. The shaded corner is your limits: ${st.maxPop} or fewer, ${money(st.maxPrice)} or less. Hover a point for detail.`
+    : `${label} has no priced cards at this grade yet, so there is nothing to plot.`;
+  if(!pts.length){ el("scatter").innerHTML='<div id="tip" class="tip" hidden></div>'; return; }
+
+  const W=520,H=210,L=40,R=10,T=10,B=28;
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const xMin=Math.min(...xs,st.maxPrice)*0.8, xMax=Math.max(...xs,st.maxPrice)*1.25;
+  const yMax=Math.max(...ys,st.maxPop)*1.1;
+  const lx=v=>L+(Math.log10(v)-Math.log10(xMin))/(Math.log10(xMax)-Math.log10(xMin))*(W-L-R);
+  const ly=v=>T+(1-v/yMax)*(H-T-B);
+  const ticks=[50,100,200,500,1000,5000,25000].filter(v=>v>=xMin&&v<=xMax);
+  const statusText={pass:"Clears both gates",near:"Population clears, price does not",
+    queue:"Worth a population check",out:"Screened out"};
+
+  el("scatter").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img"
+    aria-label="Population against price for ${label}">
+    <rect x="${lx(xMin)}" y="${ly(st.maxPop)}" width="${lx(st.maxPrice)-lx(xMin)}"
+      height="${ly(0)-ly(st.maxPop)}" fill="var(--pass-bg)"/>
+    <line x1="${L}" y1="${ly(0)}" x2="${W-R}" y2="${ly(0)}" stroke="var(--rule)"/>
+    <line x1="${L}" y1="${T}" x2="${L}" y2="${ly(0)}" stroke="var(--rule)"/>
+    <line x1="${lx(st.maxPrice)}" y1="${T}" x2="${lx(st.maxPrice)}" y2="${ly(0)}"
+      stroke="var(--pass)" stroke-dasharray="3 3"/>
+    <line x1="${L}" y1="${ly(st.maxPop)}" x2="${W-R}" y2="${ly(st.maxPop)}"
+      stroke="var(--pass)" stroke-dasharray="3 3"/>
+    ${ticks.map(v=>`<text x="${lx(v)}" y="${H-9}" font-size="9" fill="var(--ink-soft)"
+      text-anchor="middle">$${v>=1000?(v/1000)+"k":v}</text>`).join("")}
+    ${[0,Math.round(yMax/2),Math.round(yMax)].map(v=>`<text x="${L-5}" y="${ly(v)+3}"
+      font-size="9" fill="var(--ink-soft)" text-anchor="end">${v}</text>`).join("")}
+    <text x="${L}" y="${T+8}" font-size="9" fill="var(--ink-soft)">population</text>
+    ${pts.map((p,i)=>{
+      const col = p.s==="pass"?"var(--pass)":p.s==="near"?"var(--near)":
+                  p.s==="queue"?"var(--queue)":"var(--out)";
+      return `<circle class="pt" data-i="${i}" cx="${lx(p.x).toFixed(1)}"
+        cy="${ly(p.y).toFixed(1)}" r="3.6" fill="${p.est?"none":col}"
+        stroke="${col}" stroke-width="1.4"/>`;
+    }).join("")}
+  </svg><div id="tip" class="tip" hidden></div>`;
+
+  const tip=el("tip"), box=el("scatter");
+  box.querySelectorAll("circle.pt").forEach(node=>{
+    const show=ev=>{
+      const p=pts[+node.dataset.i], c=p.c;
+      tip.innerHTML=`<b>${c.n} #${c.num}</b>
+        <span>${c.set}</span>
+        <span>PSA ${g} population: ${p.y}${p.est?" (estimated from combined)":""}</span>
+        <span>PSA ${g} price: ${money(p.x)}${(g==="10"&&c.est10)?" (estimate)":""}</span>
+        <span>Combined PSA + CGC: ${c.c9??"—"} at 9, ${c.c10??"—"} at 10</span>
+        <span>${statusText[p.s]}</span>`;
+      tip.hidden=false;
+      const r=box.getBoundingClientRect(), t=tip.getBoundingClientRect();
+      const px=("clientX" in ev? ev.clientX : r.left+r.width/2)-r.left;
+      const py=("clientY" in ev? ev.clientY : r.top+r.height/2)-r.top;
+      tip.style.left=Math.max(0,Math.min(px+12,r.width-t.width-2))+"px";
+      tip.style.top=Math.max(0,py-t.height-8)+"px";
+    };
+    node.addEventListener("mouseenter",show);
+    node.addEventListener("mousemove",show);
+    node.addEventListener("focus",show);
+    node.addEventListener("mouseleave",()=>{tip.hidden=true});
+    node.addEventListener("blur",()=>{tip.hidden=true});
+    node.setAttribute("tabindex","0");
+  });
+}
+
+function render(){
+  const st=state();
+  const scored=cards.map(c=>({c,s:classify(c,st.maxPop,st.maxPrice,st.grade)}));
+  const n=k=>scored.filter(x=>x.s===k).length;
+  const conf=cards.filter(confirmed).length;
+  const priced=cards.filter(c=>c.p9!=null||c.p10!=null).length;
+  const popd=cards.filter(c=>c.c9!=null||c.c10!=null).length;
+  const thin=cards.filter(confirmed).map(c=>c.psa10).filter(v=>v!=null).sort((a,b)=>a-b)[0];
+
+  el("kpis").innerHTML=[
+    [n("pass"),"Clear both gates","win"],
+    [n("near"),"Population clears, price does not"],
+    [cards.length,"Holos on record"],
+    [conf,"PSA counts read directly"],
+    [priced,"Have prices"],
+    [popd,"Have populations"],
+    [DATA.length+" of "+(DATA.length+QUEUED.length),"Sets screened","wide"],
+    [thin!=null?("PSA 10 pop "+thin):"—","Thinnest confirmed population","wide"]
+  ].map(([v,l,cl])=>`<div class="kpi ${cl||""}"><b>${v}</b><span>${l}</span></div>`).join("");
+
+  drawScatter(scored,st);
+
+  let rows=scored;
+  if(st.show==="live") rows=scored.filter(x=>x.s==="pass"||x.s==="near");
+  if(st.show==="queue") rows=scored.filter(x=>x.s==="queue");
+  const ord={pass:0,near:1,queue:2,out:3};
+  rows=rows.slice().sort((a,b)=>ord[a.s]-ord[b.s]||(a.c.p9??1e9)-(b.c.p9??1e9));
+
+  el("results").innerHTML = rows.length
+    ? `<div class="scroll">${tableFor(rows,true)}</div>`
+    : `<div class="empty">Nothing matches. Raise the population or price limit, or switch the view to
+       every card checked to see what has been ruled out and why.</div>`;
+
+  el("sets").innerHTML = DATA.map(s=>{
+    const mine=scored.filter(x=>x.c.setSlug===s.slug);
+    const p=mine.filter(x=>x.s==="pass").length, q=mine.filter(x=>x.s==="queue").length;
+    const summary = p?`${p} clear both gates`:q?`${q} worth a population check`:"No qualifiers";
+    return `<details><summary>
+      <span class="sname">${s.set}<em>${s.year} · ${s.cards.length} holos</em></span>
+      <span class="sstate">${summary}</span></summary>
+      <div class="scroll">${tableFor(mine,false)}</div>
+      <p class="note" style="padding:10px 14px 12px;margin:0">${s.note}</p></details>`;
+  }).join("") + QUEUED.map(([nm,yr])=>`<details><summary>
+      <span class="sname">${nm}<em>${yr}</em></span>
+      <span class="sstate">Not yet pulled</span></summary>
+      <p class="note" style="padding:12px 14px;margin:0">Nothing pulled for this set yet. Copy the scan
+      request below and paste it into our chat to queue it up.</p></details>`).join("");
+
+  const t=el("target"), keep=t.value;
+  t.innerHTML=cards.slice().sort((a,b)=>a.set.localeCompare(b.set)||a.n.localeCompare(b.n))
+    .map(c=>`<option value="${c.id}">${c.set} — ${c.n} #${c.num}</option>`).join("");
+  if(keep)t.value=keep;
+}
+
+function tableFor(rows,showSet){
+  const cell=(c,g)=>{
+    const v=pop(c,g);
+    if(v==null) return "—";
+    return isEstPop(c,g) ? `<span class="est" title="Estimated from the combined count">~${v}</span>` : v;
+  };
+  return `<table><thead><tr>
+    <th>Card</th><th>PSA 9</th><th>PSA 10</th><th>PSA 9 price</th><th>PSA 10 price</th>
+    <th>Combined 9 / 10</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(({c,s})=>{
+      const tag={pass:'<span class="tag t-pass">Clears both</span>',
+        near:'<span class="tag t-near">Pop clears, price does not</span>',
+        queue:'<span class="tag t-queue">Worth a population check</span>',
+        out:'<span class="tag t-out">Screened out</span>'}[s];
+      return `<tr class="${s==="out"?"out":""}">
+        <td class="card"><a href="${POP}${c.setSlug}/${c.s}" target="_blank" rel="noopener">${c.n} #${c.num}</a>
+          ${showSet?`<span class="setname">${c.set}</span>`:""}</td>
+        <td>${cell(c,"9")}</td><td>${cell(c,"10")}</td>
+        <td>${money(c.p9)}</td>
+        <td${c.est10?' class="est"':""}>${money(c.p10)}</td>
+        <td>${c.c9??"—"} / ${c.c10??"—"}</td>
+        <td>${tag}</td></tr>`;
+    }).join("")}</tbody></table>`;
+}
+
+function note(t,k){ const m=el("msg"); m.textContent=t; m.className="msg "+(k||""); }
+
+function parsePop(text){
+  const out={};
+  text.split(/\r?\n/).forEach(line=>{
+    const cells=line.split(/\s*\|\s*|\t+|\s{2,}/).map(s=>s.trim()).filter(Boolean);
+    if(cells.length<3) return;
+    const g=cells[0].replace(/[^0-9.]/g,"");
+    if(g!=="9"&&g!=="10") return;
+    const num=s=>{ if(!s)return null; const v=s.replace(/[$,]/g,"");
+      return /^-$|^$/.test(v)?0:(isNaN(+v)?null:+v); };
+    const pr=cells.slice(2).find(s=>s.includes("$"));
+    out[g]={psa:num(cells[1]), price:pr?num(pr):null};
+  });
+  return out;
+}
+
+el("save").addEventListener("click",()=>{
+  const c=cards.find(x=>x.id===el("target").value);
+  if(!c) return note("Pick a card first.","err");
+  const got=parsePop(el("paste").value);
+  if(!got["9"]&&!got["10"]) return note("No grade 9 or grade 10 row found. Copy the whole grade table, row labels included.","err");
+  if(got["9"]){ c.psa9=got["9"].psa; if(got["9"].price!=null)c.p9=got["9"].price; }
+  if(got["10"]){ c.psa10=got["10"].psa; if(got["10"].price!=null){c.p10=got["10"].price;c.est10=false;} }
+  save(); render();
+  note(`Recorded ${c.n} #${c.num}: PSA 9 pop ${c.psa9??"—"}, PSA 10 pop ${c.psa10??"—"}.`,"ok");
+  el("paste").value="";
+});
+
+el("copyPrompt").addEventListener("click",async()=>{
+  const next=QUEUED.slice(0,3).map(q=>q[0]).join(", ");
+  const text=`Continue the low-pop holo screen. Next sets: ${next}. Holo rares, secret rares and special variants only, no reverse holos. Pull PSA 9 and PSA 10 populations and prices from PriceCharting, flag anything with a PSA population under 20 and a price under $200, and give me the rows to paste into the screener.`;
+  try{ await navigator.clipboard.writeText(text); note("Scan request copied. Paste it into our chat.","ok"); }
+  catch(e){ el("paste").value=text; note("Copying was blocked. The request is in the box above instead.","err"); }
+});
+el("copyData").addEventListener("click",async()=>{
+  try{ await navigator.clipboard.writeText(JSON.stringify(cards,null,2)); note("All rows copied as JSON.","ok"); }
+  catch(e){ note("Copying was blocked by this browser.","err"); }
+});
+el("clear").addEventListener("click",()=>{
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  cards=flatten(); render(); note("Saved edits cleared. Back to the scraped data.","ok");
+});
+el("reset").addEventListener("click",()=>{
+  el("maxPop").value=20; el("maxPrice").value=200;
+  el("grade").value="either"; el("show").value="live"; render();
+});
+["maxPop","maxPrice","grade","show","scope"].forEach(id=>{
+  el(id).addEventListener("input",render); el(id).addEventListener("change",render);
+});
+
+buildScope(); load(); render();
+</script>
+</body>
+</html>
