@@ -37,7 +37,10 @@ button.primary { background: #0f2633; border-color: #2d6d8f; color: #e2f4ff; }
 :focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
 #tc { font: 400 15px/1 var(--mono); color: var(--muted); min-width: 11ch; }
 input[type=range] { width: 100%; accent-color: var(--glow); }
-.cc { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 15px; }
+.cc { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 15px; cursor: pointer; }
+.view { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 10px; }
+.view .msg { margin: 0; min-height: 0; flex: 1 1 16ch; }
+.view button { padding: 8px 14px; font-size: 15px; }
 .beats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; padding: 0; list-style: none; }
 .beats button { background: none; border: 0; padding: 4px 0; color: var(--muted); font: 400 14px/1.2 var(--sans); }
 .beats button span { font-family: var(--mono); margin-right: 6px; color: #8fa6b0; }
@@ -55,6 +58,7 @@ section.panel h3 { font: 600 19px/1.2 var(--sans); margin: 0 0 10px; }
 section.panel + section.panel { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--rule); }
 .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 18px; margin: 4px 0 14px; }
 .checks label { display: flex; gap: 10px; align-items: center; font-size: 16px; cursor: pointer; }
+.checks input, .cc input, fieldset.frame input { flex: none; }
 input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--glow); }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 label.sel { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 15px; color: var(--muted); margin: 0 0 14px; }
@@ -88,6 +92,12 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
     <input id="scrub" type="range" min="0" max="60" step="0.01" value="0" aria-label="Position in the recording">
     <label class="cc"><input id="capToggle" type="checkbox" checked> Captions</label>
   </div>
+  <div class="view">
+    <label class="cc"><input id="osdToggle" type="checkbox" checked> Camera display</label>
+    <label class="cc"><input id="fillToggle" type="checkbox"> Fill 16:9, no pillarbox (for stills)</label>
+    <button id="frameBtn" disabled>Save frame (PNG)</button>
+    <span id="frameMsg" class="msg" aria-live="polite"></span>
+  </div>
   <ul class="beats" aria-label="Jump to a moment">
     <li><button data-seek="0"><span>0:00</span>Tape roll-in</button></li>
     <li><button data-seek="8"><span>0:08</span>Routine walk</button></li>
@@ -108,7 +118,7 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
     <div>
       <section class="panel" aria-labelledby="exH">
         <h3 id="exH">Export MP4</h3>
-        <p class="hint">Renders frame by frame at 30 fps, so the file has no dropped frames. Untick a layer to leave it out of the file.</p>
+        <p class="hint">Renders frame by frame at 30 fps, so the file has no dropped frames. Untick a layer to leave it out of the file. Save frame (PNG) also follows the captions and camera display boxes here.</p>
         <fieldset class="frame">
           <legend>Frame</legend>
           <label><input type="radio" name="exFrame" id="exFrame169" checked> 16:9 with pillarbox (1920×1080)</label>
@@ -126,6 +136,7 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
           <label><input id="exSfx" type="checkbox" checked> Sound effects</label>
           <label><input id="exVoice" type="checkbox" checked> Voice</label>
           <label><input id="exCaps" type="checkbox" checked> Burn in captions</label>
+          <label><input id="exOsd" type="checkbox" checked> Camera display (REC, time, date)</label>
         </div>
         <div class="row">
           <button id="exportBtn" class="primary" disabled>Export MP4</button>
@@ -1481,7 +1492,12 @@ void main(){
 // ---------- vhs.js : camera response (DOF, AO, bloom, exposure) and the VHS camcorder pass ----------
 const Post = (() => {
   let gl, P = {}, RT = {};
-  const W = 720, H = 540;
+  // the scene is normally 720x540 (4:3). The thumbnail view renders a wider 1024x540 frame with the
+  // same vertical field of view, so the centre 4:3 stays put and the pillarbox area fills with more world.
+  const H = 540, W43 = 720, WWIDE = 1024;
+  const PAD_WIDE = (WWIDE / W43 - 1) / 2;   // extra width per side, in 4:3 image units
+  let W = W43, PAD = 0;
+  const SETS = {};
   const FS_BRIGHT = `#version 300 es
 precision highp float; uniform sampler2D uSrc; uniform vec2 uTexel; uniform float uTh; out vec4 o;
 void main(){
@@ -1564,20 +1580,23 @@ precision highp float;
 uniform sampler2D uImg; uniform sampler2D uOSD; uniform sampler2D uCap;
 uniform vec2 uOut; uniform float uFrame; uniform vec4 uTear; uniform float uRoll; uniform float uDrop;
 uniform vec3 uWB; uniform float uGain; uniform float uSnow; uniform float uFade; uniform float uSkew; uniform float uOSDOn; uniform float uCapOn;
+uniform float uPad;
 out vec4 o;
 float h1(float n){ return fract(sin(n)*43758.5453); }
 float h2(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float n1(float x){ float i = floor(x), f = fract(x); f = f*f*(3. - 2.*f); return mix(h1(i), h1(i + 1.), f)*2. - 1.; }
 vec3 toYIQ(vec3 c){ return vec3(dot(c, vec3(.299,.587,.114)), dot(c, vec3(.596,-.274,-.322)), dot(c, vec3(.211,-.523,.312))); }
 vec3 toRGB(vec3 c){ return vec3(c.x + .956*c.y + .621*c.z, c.x - .272*c.y - .647*c.z, c.x - 1.106*c.y + 1.703*c.z); }
-vec3 img(vec2 uv){ return texture(uImg, vec2(uv.x, 1. - uv.y)).rgb; }
+// uv is in 4:3 image units; a wide scene texture spans -uPad to 1 + uPad
+vec3 img(vec2 uv){ return texture(uImg, vec2((uv.x + uPad) / (1. + 2. * uPad), 1. - uv.y)).rgb; }
+float in01(float x){ return step(0., x) * step(x, 1.); }
 vec3 softclip(vec3 x){ vec3 k = max(x - 0.8, 0.); return min(x, 0.8) + 0.2*(1. - exp(-k/0.2)); }
 void main(){
   vec2 fc = gl_FragCoord.xy;
   float fw = uOut.y * 4. / 3.;
   float x0 = (uOut.x - fw) * 0.5;
   vec2 uv = vec2((fc.x - x0) / fw, 1. - fc.y / uOut.y);
-  if(uv.x < 0. || uv.x > 1.){ o = vec4(0., 0., 0., 1.); return; }
+  if(uv.x < -uPad || uv.x > 1. + uPad){ o = vec4(0., 0., 0., 1.); return; }
   float line = floor(uv.y * 540.);
   float fr = uFrame;
   float jit = 0.25 * n1(line * 0.045 + fr * 0.21);
@@ -1590,7 +1609,8 @@ void main(){
   float vy = uv.y; float rollBar = 1.;
   if(uRoll > 0.){ vy = fract(uv.y + uRoll); rollBar = smoothstep(0., 0.035, vy) * smoothstep(1., 0.965, vy); }
   vec2 suv = vec2(uv.x + off / 720., vy);
-  vec2 d = suv - 0.5; vec2 da = d * vec2(1., 0.75);
+  // the fill-16:9 still view overscans by 4% so the lens barrel never shows black corners
+  vec2 d = (suv - 0.5) * (uPad > 0. ? 0.96 : 1.); vec2 da = d * vec2(1., 0.75);
   float r2 = dot(da, da);
   vec2 buv = 0.5 + d * (1. + 0.085 * r2 + 0.03 * r2 * r2) * 0.985;
   float px = 1. / 720.;
@@ -1607,7 +1627,7 @@ void main(){
   for(int k = 1; k <= 6; k++){ float yy = toYIQ(img(vec2(buv.x - float(k) * px * 2.6, buv.y))).x; sm = max(sm, (yy - 0.62) * exp(-float(k) * 0.42)); }
   Y += max(sm, 0.) * 0.55;
   vec3 col = toRGB(vec3(Y, IQ * 1.22));
-  if(buv.x < 0. || buv.x > 1. || buv.y < 0. || buv.y > 1.) col = vec3(0.);
+  if(buv.x < -uPad || buv.x > 1. + uPad || buv.y < 0. || buv.y > 1.) col = vec3(0.);
   col *= uWB;
   // AGC noise lives in the darks, at tape rate
   vec2 sp = floor(vec2(uv.x * 720., line));
@@ -1654,10 +1674,10 @@ void main(){
   if(uOSDOn > 0.){
     vec2 ouv = vec2(uv.x + (jit + tearOff + hsOff) / 720., uv.y);
     vec4 ov = texture(uOSD, ouv) * 0.6 + texture(uOSD, ouv - vec2(0.7 * px, 0.)) * 0.4;
-    col = mix(col, ov.rgb * (0.92 + 0.08 * h2(sp + fr)), ov.a * uOSDOn);
+    col = mix(col, ov.rgb * (0.92 + 0.08 * h2(sp + fr)), ov.a * uOSDOn * in01(ouv.x));
   }
   // closed captions: decoder output, untouched by tape noise
-  if(uCapOn > 0.){ vec4 cv = texture(uCap, uv); col = mix(col, cv.rgb, cv.a); }
+  if(uCapOn > 0.){ vec4 cv = texture(uCap, uv); col = mix(col, cv.rgb, cv.a * in01(uv.x)); }
   o = vec4(col, 1.);
 }`;
 
@@ -1668,15 +1688,27 @@ void main(){
     P.up = G.program(G.FSV, FS_UP);
     P.cam = G.program(G.FSV, FS_CAM);
     P.vhs = G.program(G.FSV, FS_VHS);
-    RT.scene = G.rt(W, H, {}, true);
-    RT.b = [G.rt(360, 270), G.rt(180, 135), G.rt(90, 68), G.rt(45, 34)];
-    RT.u = [G.rt(360, 270), G.rt(180, 135), G.rt(90, 68)];
-    RT.cam = G.rt(W, H, { internal: gl.RGBA8, type: gl.UNSIGNED_BYTE });
+    SETS[W43] = makeSet(W43);
+    RT = SETS[W43];
     return RT;
+  }
+  function makeSet(w) {
+    const s = {};
+    s.scene = G.rt(w, H, {}, true);
+    s.b = [G.rt(w / 2, 270), G.rt(w / 4, 135), G.rt(w / 8, 68), G.rt(w / 16, 34)];
+    s.u = [G.rt(w / 2, 270), G.rt(w / 4, 135), G.rt(w / 8, 68)];
+    s.cam = G.rt(w, H, { internal: gl.RGBA8, type: gl.UNSIGNED_BYTE });
+    return s;
+  }
+  // wide = true renders the frame used to fill 16:9 with no pillarbox (built on first use)
+  function setWide(wide) {
+    const w = wide ? WWIDE : W43;
+    if (!SETS[w]) SETS[w] = makeSet(w);
+    RT = SETS[w]; W = w; PAD = wide ? PAD_WIDE : 0;
   }
   function bloom() {
     gl.disable(gl.DEPTH_TEST);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, RT.b[0].fb); gl.viewport(0, 0, 360, 270);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, RT.b[0].fb); gl.viewport(0, 0, RT.b[0].w, RT.b[0].h);
     G.use(P.bright, { uSrc: RT.scene.tex, uTexel: [1 / W, 1 / H], uTh: 1.0 }); G.fullscreen();
     for (let i = 1; i < 4; i++) {
       const s = RT.b[i - 1], d = RT.b[i];
@@ -1699,10 +1731,10 @@ void main(){
   }
   function vhs(u, outW, outH) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, outW, outH);
-    G.use(P.vhs, { uImg: RT.cam.tex, uOut: [outW, outH], ...u });
+    G.use(P.vhs, { uImg: RT.cam.tex, uOut: [outW, outH], uPad: PAD, ...u });
     G.fullscreen();
   }
-  return { init, bloom, camera, vhs, W, H, get RT() { return RT; } };
+  return { init, bloom, camera, vhs, setWide, H, get W() { return W; }, get RT() { return RT; } };
 })();
 
 // ---------- osd.js : consumer camcorder display (REC, battery, time, date) and title generator ----------
@@ -2499,14 +2531,16 @@ const Exporter = (() => {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, cv);
   }
-  let captionsOn = true;
-  function renderAt(tRaw, capOverride) {
+  let captionsOn = true, osdOn = true, fillView = false;
+  // capOverride / osdOverride come from the export settings; the fill view is for stills only
+  function renderAt(tRaw, capOverride, osdOverride) {
     if (!ready) return;
+    Post.setWide(fillView && !exporting && OUT_W / OUT_H > 1.5);
     const t = Story.warp(Math.min(Math.max(tRaw, 0), Story.T_END - 0.001));
     const cam = Story.camera(t);
     World.update(t); World.uploadState();
     World.renderLightmap(t, cam);
-    const fov = cam.fov * U.DEG, asp = 4 / 3;
+    const fov = cam.fov * U.DEG, asp = Post.W / Post.H;
     const VP = U.m4.mul(U.m4.persp(fov, asp, 0.03, 140), U.m4.view(cam.pos, cam.f, cam.u, cam.r));
     const RT = Post.RT;
     gl.bindFramebuffer(gl.FRAMEBUFFER, RT.scene.fb); gl.viewport(0, 0, Post.W, Post.H);
@@ -2527,8 +2561,9 @@ const Exporter = (() => {
     if (Subs.enabled !== capOn) Subs.setEnabled(capOn);
     if (Subs.draw(t)) upload(texCap, Subs.canvas);
     const tp = Story.tape(t);
+    const osdShow = osdOverride !== undefined ? osdOverride : osdOn;
     Post.vhs({ uOSD: texOSD, uCap: texCap, uFrame: Math.floor(t * 30), uTear: [tp.tear, tp.band, tp.bh, 0], uRoll: tp.roll, uDrop: tp.drop,
-      uWB: tp.wb, uGain: Story.agc(t), uSnow: tp.snow, uFade: tp.fade, uSkew: skew, uOSDOn: tp.osd ? 1 : 0, uCapOn: capOn ? 1 : 0 }, OUT_W, OUT_H);
+      uWB: tp.wb, uGain: Story.agc(t), uSnow: tp.snow, uFade: tp.fade, uSkew: skew, uOSDOn: tp.osd && osdShow ? 1 : 0, uCapOn: capOn ? 1 : 0 }, OUT_W, OUT_H);
   }
 
   // ---------------- playback ----------------
@@ -2579,6 +2614,8 @@ const Exporter = (() => {
     if (e.code === 'Space' && e.target.tagName !== 'BUTTON') { e.preventDefault(); playing ? pause() : play(); }
   });
   $('#capToggle').addEventListener('change', (e) => { captionsOn = e.target.checked; dirty = true; });
+  $('#osdToggle').addEventListener('change', (e) => { osdOn = e.target.checked; dirty = true; });
+  $('#fillToggle').addEventListener('change', (e) => { fillView = e.target.checked; dirty = true; });
   document.querySelectorAll('[data-seek]').forEach(b => b.addEventListener('click', () => seek(+b.dataset.seek)));
 
   // ---------------- voice track ----------------
@@ -2604,19 +2641,35 @@ const Exporter = (() => {
   const exBtn = $('#exportBtn'), exCancel = $('#exportCancel'), exBar = $('#exportBar'), exMsg = $('#exportMsg');
   let downloads = null;
   if (window.claude && typeof window.claude.use === 'function') window.claude.use('downloads').then(d => { downloads = d; }).catch(() => { });
-  async function save(blob, name, note = '') {
+  async function save(blob, name, note = '', msgEl = exMsg) {
     if (downloads) {
-      try { await downloads.save({ filename: name, data: blob }); exMsg.textContent = 'Saved ' + name + '.' + note; return; }
+      try { await downloads.save({ filename: name, data: blob }); msgEl.textContent = 'Saved ' + name + '.' + note; return; }
       catch (e) {
-        if (e && e.code === 'declined') { exMsg.textContent = 'Save cancelled. Export again to get the file.'; return; }
-        if (e && e.code === 'too_large') { exMsg.textContent = 'The file is too large for this save destination.'; return; }
+        if (e && e.code === 'declined') { msgEl.textContent = 'Save cancelled. Try again to get the file.'; return; }
+        if (e && e.code === 'too_large') { msgEl.textContent = 'The file is too large for this save destination.'; return; }
       }
     }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    exMsg.textContent = 'Saved ' + name + '.' + note;
+    msgEl.textContent = 'Saved ' + name + '.' + note;
   }
+  // ---------------- still frame ----------------
+  const frameBtn = $('#frameBtn'), frameMsg = $('#frameMsg');
+  frameBtn.addEventListener('click', () => {
+    if (!ready || exporting) return;
+    const t = tNow;
+    // the still follows the export checkboxes for captions and the camera display
+    const caps = $('#exCaps').checked, osd = $('#exOsd').checked;
+    renderAt(t, caps, osd);   // the buffer is preserved, and toBlob copies it now
+    dirty = true;              // the next frame puts the on-screen view back
+    const m = Math.floor(t / 60), sec = (t - m * 60).toFixed(2).padStart(5, '0');
+    const name = 'environmental-verification-' + m + 'm' + sec + 's' + (fillView ? '-fill16x9' : '') + (osd ? '' : '-noosd') + (caps ? '' : '-nocaps') + '.png';
+    canvas.toBlob((blob) => {
+      if (!blob) { frameMsg.textContent = 'This browser could not capture the frame.'; return; }
+      save(blob, name, '', frameMsg);
+    }, 'image/png');
+  });
   // what this browser will produce, shown before anyone exports
   const showCodec = () => Exporter.describe($('#exSound').value).then(d => { $('#exCodec').textContent = d.text; }).catch(() => { });
   showCodec();
@@ -2644,25 +2697,25 @@ const Exporter = (() => {
   exBtn.addEventListener('click', async () => {
     if (!ready || !audioReady || exporting) return;
     const sel = { music: $('#exMusic').checked, sfx: $('#exSfx').checked, voice: $('#exVoice').checked };
-    const burn = $('#exCaps').checked;
+    const burn = $('#exCaps').checked, osdBurn = $('#exOsd').checked;
     const four3 = $('#exFrame43').checked;
     pause(); exporting = true; cancel = false;
     if (actx && actx.state !== 'running') { try { await actx.resume(); } catch (e) { } }
-    exBtn.disabled = true; exCancel.hidden = false; exBar.hidden = false; exBar.value = 0;
+    exBtn.disabled = true; frameBtn.disabled = true; exCancel.hidden = false; exBar.hidden = false; exBar.value = 0;
     exMsg.textContent = 'Starting';
     try {
       ensureCtx();
       if (four3) setFrame(1440, 1080);
       const r = await Exporter.run({
         sel, canvas, audioCtx: actx, buffers: bufs, width: OUT_W, height: OUT_H, soundPref: $('#exSound').value,
-        renderAt: (t) => renderAt(t, burn),
+        renderAt: (t) => renderAt(t, burn, osdBurn),
         onProgress: (f, m) => { exBar.value = f; exMsg.textContent = m; },
         isCancelled: () => cancel,
       });
       if (r.cancelled) exMsg.textContent = 'Export cancelled.';
       else {
         const parts = [sel.music && 'hum', sel.sfx && 'sfx', sel.voice && 'voice'].filter(Boolean);
-        const name = 'environmental-verification' + (four3 ? '-4x3' : '') + (parts.length === 3 ? '' : parts.length ? '-' + parts.join('-') : '-silent') + '.' + r.ext;
+        const name = 'environmental-verification' + (four3 ? '-4x3' : '') + (osdBurn ? '' : '-noosd') + (parts.length === 3 ? '' : parts.length ? '-' + parts.join('-') : '-silent') + '.' + r.ext;
         exBar.value = 1;
         const anyA = sel.music || sel.sfx || sel.voice;
         const note = !anyA ? ' No sound layers were ticked, so the file is silent.' : r.audio ? ' ' + (r.video === 'recorded' ? 'Recorded' : r.video + ' video') + ' with ' + r.audio + ' sound.' : '';
@@ -2670,7 +2723,7 @@ const Exporter = (() => {
       }
     } catch (e) { exMsg.textContent = 'Export stopped: ' + (e && e.message ? e.message : e); console.error(e); }
     setFrame(1920, 1080);
-    exporting = false; exBtn.disabled = false; exCancel.hidden = true; dirty = true;
+    exporting = false; exBtn.disabled = false; frameBtn.disabled = false; exCancel.hidden = true; dirty = true;
   });
   exCancel.addEventListener('click', () => { cancel = true; });
 
@@ -2682,13 +2735,14 @@ const Exporter = (() => {
     try { await document.fonts.load('600 42px "IBM Plex Mono"'); } catch (e) { }
     Subs.invalidate();
     dirty = true; loop();
+    frameBtn.disabled = false;
     setStatus('Recording the sound 0%');
     await Snd.render((f) => setStatus('Recording the sound ' + Math.round(f * 100) + '%'));
     audioReady = true;
     setStatus('Ready');
     playBtn.disabled = false; exBtn.disabled = false;
     $('#statusWrap').classList.add('done');
-    window.__film = { renderAt, setFrame, computeExposure, TUNE, Story, World, Snd, Exporter, Mux, ready: () => ready && audioReady };
+    window.__film = { renderAt, setFrame, setView: (v) => { if ('fill' in v) fillView = v.fill; if ('osd' in v) osdOn = v.osd; if ('caps' in v) captionsOn = v.caps; dirty = true; }, computeExposure, TUNE, Story, World, Snd, Exporter, Mux, ready: () => ready && audioReady };
   }, 30));
 })();
 
