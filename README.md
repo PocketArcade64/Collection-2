@@ -1,1 +1,3 @@
 # Collection-2
+
+Now you understand my context, I found a backrooms style demo built using Claude and there is a demo folder, please look through all the files and folder and only return the necessary files for my purpose (remove the story since mine will be different, remove the backroom wall textures, but keep the general structure so it is repeatable for all the found footage films I want to make)
