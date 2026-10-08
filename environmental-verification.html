@@ -57,6 +57,8 @@ section.panel + section.panel { margin-top: 30px; padding-top: 24px; border-top:
 .checks label { display: flex; gap: 10px; align-items: center; font-size: 16px; cursor: pointer; }
 input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--glow); }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+label.sel { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 15px; color: var(--muted); margin: 0 0 14px; }
+label.sel select { font: 400 16px/1.2 var(--sans); color: var(--ink); background: var(--panel); border: 1px solid #2a3940; border-radius: 4px; padding: 8px 10px; }
 fieldset.frame { border: 0; padding: 0; margin: 4px 0 14px; display: flex; flex-wrap: wrap; gap: 8px 22px; }
 fieldset.frame legend { font-size: 15px; color: var(--muted); padding: 0; margin-bottom: 6px; }
 fieldset.frame label { display: flex; gap: 10px; align-items: center; font-size: 16px; cursor: pointer; }
@@ -112,6 +114,13 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
           <label><input type="radio" name="exFrame" id="exFrame169" checked> 16:9 with pillarbox (1920×1080)</label>
           <label><input type="radio" name="exFrame" id="exFrame43"> 4:3, no pillarbox (1440×1080)</label>
         </fieldset>
+        <label class="sel">Sound format
+          <select id="exSound">
+            <option value="auto" selected>Automatic (uncompressed on Mac, AAC elsewhere)</option>
+            <option value="pcm">Uncompressed PCM (plays in QuickTime and every editor)</option>
+            <option value="aac">AAC (smaller file)</option>
+          </select>
+        </label>
         <div class="checks">
           <label><input id="exMusic" type="checkbox" checked> Music (forest hum)</label>
           <label><input id="exSfx" type="checkbox" checked> Sound effects</label>
@@ -1696,83 +1705,89 @@ void main(){
   return { init, bloom, camera, vhs, W, H, get RT() { return RT; } };
 })();
 
-// ---------- osd.js : camcorder bitmap font, REC, battery, time, VERIFY MODE, title generator (no date) ----------
+// ---------- osd.js : consumer camcorder display (REC, battery, time, date) and title generator ----------
 const OSD = (() => {
+  const W = 720, H = 540;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  // 5x7 camcorder character generator, drawn with fat square pixels and a dark rim,
+  // matching the burned-in date/time lettering of a 1990s consumer camcorder
   const G5 = {
     '0': '01110 10001 10011 10101 11001 10001 01110', '1': '00100 01100 00100 00100 00100 00100 01110',
-    '2': '01110 10001 00001 00010 00100 01000 11111', '3': '11110 00001 00001 01110 00001 00001 11110',
+    '2': '01110 10001 00001 00010 00100 01000 11111', '3': '11111 00010 00100 00010 00001 10001 01110',
     '4': '00010 00110 01010 10010 11111 00010 00010', '5': '11111 10000 11110 00001 00001 10001 01110',
     '6': '00110 01000 10000 11110 10001 10001 01110', '7': '11111 00001 00010 00100 01000 01000 01000',
     '8': '01110 10001 10001 01110 10001 10001 01110', '9': '01110 10001 10001 01111 00001 00010 01100',
     'A': '01110 10001 10001 11111 10001 10001 10001', 'B': '11110 10001 10001 11110 10001 10001 11110',
-    'C': '01110 10001 10000 10000 10000 10001 01110', 'D': '11100 10010 10001 10001 10001 10010 11100',
+    'C': '01110 10001 10000 10000 10000 10001 01110', 'D': '11110 10001 10001 10001 10001 10001 11110',
     'E': '11111 10000 10000 11110 10000 10000 11111', 'F': '11111 10000 10000 11110 10000 10000 10000',
     'G': '01110 10001 10000 10111 10001 10001 01111', 'H': '10001 10001 10001 11111 10001 10001 10001',
     'I': '01110 00100 00100 00100 00100 00100 01110', 'J': '00111 00010 00010 00010 00010 10010 01100',
     'K': '10001 10010 10100 11000 10100 10010 10001', 'L': '10000 10000 10000 10000 10000 10000 11111',
     'M': '10001 11011 10101 10101 10001 10001 10001', 'N': '10001 10001 11001 10101 10011 10001 10001',
     'O': '01110 10001 10001 10001 10001 10001 01110', 'P': '11110 10001 10001 11110 10000 10000 10000',
-    'Q': '01110 10001 10001 10001 10101 10010 01101', 'R': '11110 10001 10001 11110 10100 10010 10001',
-    'S': '01111 10000 10000 01110 00001 00001 11110', 'T': '11111 00100 00100 00100 00100 00100 00100',
-    'U': '10001 10001 10001 10001 10001 10001 01110', 'V': '10001 10001 10001 10001 10001 01010 00100',
-    'W': '10001 10001 10001 10101 10101 10101 01010', 'X': '10001 10001 01010 00100 01010 10001 10001',
-    'Y': '10001 10001 01010 00100 00100 00100 00100', 'Z': '11111 00001 00010 00100 01000 10000 11111',
-    ':': '00000 01100 01100 00000 01100 01100 00000', '.': '00000 00000 00000 00000 00000 01100 01100',
-    '/': '00001 00010 00010 00100 01000 01000 10000', '-': '00000 00000 00000 11111 00000 00000 00000',
-    ' ': '00000 00000 00000 00000 00000 00000 00000',
+    'R': '11110 10001 10001 11110 10100 10010 10001', 'S': '01111 10000 10000 01110 00001 00001 11110',
+    'T': '11111 00100 00100 00100 00100 00100 00100', 'U': '10001 10001 10001 10001 10001 10001 01110',
+    'V': '10001 10001 10001 10001 10001 01010 00100', 'W': '10001 10001 10001 10101 10101 10101 01010',
+    'Y': '10001 10001 01010 00100 00100 00100 00100', ':': '00000 00000 00100 00000 00000 00100 00000',
+    '.': '00000 00000 00000 00000 00000 00000 00100', ' ': '00000 00000 00000 00000 00000 00000 00000',
   };
   const GL = {}; for (const k in G5) GL[k] = G5[k].split(' ');
-  const W = 720, H = 540;
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const x = cv.getContext('2d');
-  const tw = (str, s) => str.length * 6 * s - s;
-  function text(str, px, py, s, align = 'left') {
-    if (align === 'right') px -= tw(str, s); else if (align === 'center') px -= tw(str, s) / 2;
+  const INK = '#f2efe4', RIM = 'rgba(14,12,10,0.8)';
+  const adv = (s) => 6 * s;                      // monospaced cell: 5 pixels + 1 gap
+  function label(str, px, py, s = 3, align = 'left') {
+    const w = str.length * adv(s) - s;
+    if (align === 'right') px -= w; else if (align === 'center') px -= w / 2;
     px = Math.round(px); py = Math.round(py);
     const cells = [];
     for (let i = 0; i < str.length; i++) {
       const g = GL[str[i]] || GL[' '];
-      for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) if (g[r][c] === '1') cells.push([px + (i * 6 + c) * s, py + r * s]);
+      for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) if (g[r][c] === '1') cells.push([px + i * adv(s) + c * s, py + r * s]);
     }
-    x.fillStyle = 'rgba(0,0,0,0.92)';
-    for (const [a, b] of cells) x.fillRect(a - 1, b - 1, s + 2, s + 2);
-    x.fillStyle = '#f2f2ee';
-    for (const [a, b] of cells) x.fillRect(a, b, s, s);
+    const o = Math.max(1, Math.round(s * 0.55));
+    // the character generator's pixels bleed sideways, so vertical strokes read heavier
+    const fw = Math.round(s * 1.4);
+    x.fillStyle = RIM; for (const [a, b] of cells) x.fillRect(a - o, b - o, fw + 2 * o, s + 2 * o);
+    x.fillStyle = INK; for (const [a, b] of cells) x.fillRect(a, b, fw, s);
   }
   function battery(px, py, bars) {
-    x.fillStyle = 'rgba(0,0,0,0.92)'; x.fillRect(px - 1, py - 1, 30, 16); x.fillRect(px + 28, py + 3, 5, 8);
-    x.fillStyle = '#f2f2ee'; x.fillRect(px, py, 28, 14); x.fillRect(px + 28, py + 4, 3, 6);
-    x.fillStyle = '#000'; x.fillRect(px + 2, py + 2, 24, 10);
-    x.fillStyle = '#f2f2ee'; for (let i = 0; i < bars; i++) x.fillRect(px + 4 + i * 7, py + 4, 5, 6);
+    // thick outline, three cells, terminal nub on the right
+    const w = 60, h = 26, k = 3;
+    x.fillStyle = RIM; x.fillRect(px - 2, py - 2, w + 4, h + 4); x.fillRect(px + w, py + 6, 10, h - 12);
+    x.fillStyle = INK; x.fillRect(px, py, w, h); x.fillRect(px + w, py + 8, 7, h - 16);
+    x.fillStyle = RIM; x.fillRect(px + k, py + k, w - 2 * k, h - 2 * k);
+    const cw = (w - 2 * k - 4 * 2) / 3;
+    x.fillStyle = INK;
+    for (let i = 0; i < bars; i++) x.fillRect(px + k + 2 + i * (cw + 2), py + k + 2, cw, h - 2 * k - 4);
   }
-  function fmtClock(sec) {
-    let h = Math.floor(sec / 3600) % 24; const m = Math.floor(sec / 60) % 60, s = sec % 60;
+  function fmtTime(sec) {
+    let h = Math.floor(sec / 3600) % 24; const m = Math.floor(sec / 60) % 60;
     const pm = h >= 12; h = h % 12 || 12;
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} ${pm ? 'PM' : 'AM'}`;
+    return `${h}:${String(m).padStart(2, '0')} ${pm ? 'PM' : 'AM'}`;
   }
+  const DATE = 'JAN.27.2027';
   let lastKey = '';
-  // returns true when the canvas changed
   function draw(t) {
     const on = Story.tape(t).osd;
     const title = t > 1.1 && t < 6.6;
     const bars = t < 38 ? 3 : 2;
-    const clock = fmtClock(Story.clockSeconds(t));
-    const key = [on, title, bars, clock].join('|');
+    const time = fmtTime(Story.clockSeconds(t));
+    const key = [on, title, bars, time].join('|');
     if (key === lastKey) return false;
     lastKey = key;
     x.clearRect(0, 0, W, H);
     if (!on) return true;
-    // REC
-    x.fillStyle = 'rgba(0,0,0,0.92)'; x.beginPath(); x.arc(46, 40, 6.5, 0, 7); x.fill();
-    x.fillStyle = '#f2f2ee'; x.beginPath(); x.arc(46, 40, 5, 0, 7); x.fill();
-    text('REC', 58, 33, 2);
-    text('SP', 58, 55, 2);
-    battery(644, 33, bars);
-    text('VERIFY MODE', 676, 58, 2, 'right');
-    text(clock, 676, 488, 2, 'right');
+    // REC with its red tally dot
+    x.fillStyle = RIM; x.beginPath(); x.arc(48, 53, 11, 0, 7); x.fill();
+    x.fillStyle = '#d8342b'; x.beginPath(); x.arc(48, 53, 8.5, 0, 7); x.fill();
+    label('REC', 66, 43, 3);
+    battery(606, 40, bars);
+    // time above the date, bottom right
+    label(time, 684, 456, 3, 'right');
+    label(DATE, 684, 492, 3, 'right');
     if (title) {
-      text('LUMINOUS HOLLOW', 360, 196, 4, 'center');
-      text('ENV 3  VERIFICATION', 360, 246, 3, 'center');
+      label('LUMINOUS HOLLOW', 360, 190, 5, 'center');
+      label('ENV 3  VERIFICATION', 360, 246, 3, 'center');
     }
     return true;
   }
@@ -1795,7 +1810,7 @@ const Subs = (() => {
     if (!c) return true;
     const rows = c.split('|');
     x.font = FONT; x.textBaseline = 'middle'; x.textAlign = 'center';
-    const rh = 58, bottom = 948;
+    const rh = 58, bottom = 896;
     rows.forEach((r, i) => {
       const y = bottom - (rows.length - i) * rh;
       const w = x.measureText(r).width + 30;
@@ -2191,7 +2206,11 @@ const Mux = (() => {
           else entry = vse('vp09', full('vpcC', 1, 0, u8(tr.profile || 0), u8(tr.level || 40), u8((8 << 4) | (1 << 1) | 0), u8(1), u8(1), u8(1), u16(0)));
         } else {
           const ase = (type, cfg) => box(type, zeros(6), u16(1), zeros(8), u16(tr.channels), u16(16), u16(0), u16(0), u32(tr.sampleRate * 65536), cfg);
-          if (tr.codec === 'aac') {
+          if (tr.codec === 'pcm') {
+            // QuickTime-style uncompressed 16-bit little-endian PCM: decodes in QuickTime,
+            // Final Cut, Premiere, Resolve, VLC and ffmpeg without any audio codec
+            entry = ase('sowt', new Uint8Array(0));
+          } else if (tr.codec === 'aac') {
             const asc = tr.description;
             const dsi = cat([u8(0x05), u8(asc.length), asc]);
             const dcd = cat([u8(0x04), u8(13 + dsi.length), u8(0x40), u8(0x15), zeros(3), u32(tr.bitrate || 192000), u32(tr.bitrate || 192000), dsi]);
@@ -2204,16 +2223,24 @@ const Mux = (() => {
         }
         const stsd = full('stsd', 0, 0, u32(1), entry);
         // stts run-length
+        const pcm = tr.codec === 'pcm';
         const runs = []; for (const s of S) { const l = runs[runs.length - 1]; if (l && l[1] === s.dur) l[0]++; else runs.push([1, s.dur]); }
-        const stts = full('stts', 0, 0, u32(runs.length), ...runs.map(([c, d]) => cat([u32(c), u32(d)])));
+        const stts = pcm ? full('stts', 0, 0, u32(1), u32(durTS), u32(1)) : full('stts', 0, 0, u32(runs.length), ...runs.map(([c, d]) => cat([u32(c), u32(d)])));
         const parts = [stsd, stts];
         if (vid) {
           const keys = []; S.forEach((s, i) => { if (s.key) keys.push(i + 1); });
           parts.push(full('stss', 0, 0, u32(keys.length), ...keys.map(u32)));
           if (S.some(s => s.cto)) parts.push(full('ctts', 1, 0, u32(S.length), ...S.map(s => cat([u32(1), i32(s.cto || 0)]))));
         }
-        parts.push(full('stsc', 0, 0, u32(1), u32(1), u32(1), u32(1)));
-        parts.push(full('stsz', 0, 0, u32(0), u32(S.length), ...S.map(s => u32(s.data.length))));
+        if (pcm) {
+          // each PCM frame is one 4-byte sample; each chunk holds a block of frames
+          const ent = []; S.forEach((s, i) => { if (!ent.length || ent[ent.length - 1][1] !== s.dur) ent.push([i + 1, s.dur]); });
+          parts.push(full('stsc', 0, 0, u32(ent.length), ...ent.map(([c, n]) => cat([u32(c), u32(n), u32(1)]))));
+          parts.push(full('stsz', 0, 0, u32(tr.channels * 2), u32(durTS)));
+        } else {
+          parts.push(full('stsc', 0, 0, u32(1), u32(1), u32(1), u32(1)));
+          parts.push(full('stsz', 0, 0, u32(0), u32(S.length), ...S.map(s => u32(s.data.length))));
+        }
         parts.push(full('stco', 0, 0, u32(S.length), ...S.map((s, i) => u32(offsets ? offsets[ti][i] : 0))));
         const stbl = box('stbl', ...parts);
         const xmhd = vid ? full('vmhd', 0, 1, zeros(8)) : full('smhd', 0, 0, zeros(4));
@@ -2224,7 +2251,9 @@ const Mux = (() => {
       const mvhd = full('mvhd', 0, 0, u32(0), u32(0), u32(movieTS), u32(movieDur), u32(0x00010000), u16(0x0100), zeros(10), MATRIX, zeros(24), u32(tracks.length + 1));
       return box('moov', mvhd, ...traks);
     };
-    const ftyp = box('ftyp', str('isom'), u32(512), str('isom'), str('iso2'), str(tracks[0].codec === 'avc' ? 'avc1' : 'iso6'), str('mp41'));
+    const hasPCM = tracks.some(t => t.codec === 'pcm');
+    const ftyp = hasPCM ? box('ftyp', str('qt  '), u32(0x20050300), str('qt  '), str('isom'))
+      : box('ftyp', str('isom'), u32(512), str('isom'), str('iso2'), str(tracks[0].codec === 'avc' ? 'avc1' : 'iso6'), str('mp41'));
     const moov0 = moovFor(null);
     let dataLen = 0; for (const tr of tracks) for (const s of tr.samples) dataLen += s.data.length;
     const mdatHeader = cat([u32(dataLen + 8), str('mdat')]);
@@ -2262,13 +2291,18 @@ const Exporter = (() => {
     }
     return null;
   }
-  async function pickAudio() {
-    if (typeof AudioEncoder === 'undefined') return null;
-    for (const [kind, codec] of [['aac', 'mp4a.40.2'], ['opus', 'opus']]) {
-      const cfg = { codec, sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 };
-      try { const s = await AudioEncoder.isConfigSupported(cfg); if (s.supported) return { kind, cfg }; } catch (e) { }
-    }
-    return null;
+  async function aacSupported() {
+    if (typeof AudioEncoder === 'undefined') return false;
+    try { return (await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000, aac: { format: 'aac' } })).supported; }
+    catch (e) { return false; }
+  }
+  const isApple = () => /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh|Mac OS X/.test(navigator.userAgent);
+  // 'auto': uncompressed PCM on Apple devices (QuickTime is strict about AAC), AAC elsewhere when available
+  async function pickSound(pref) {
+    if (pref === 'pcm') return 'pcm';
+    const aac = await aacSupported();
+    if (pref === 'aac') return aac ? 'aac' : 'pcm';
+    return isApple() || !aac ? 'pcm' : 'aac';
   }
   const bytes = (d) => d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength));
 
@@ -2277,8 +2311,7 @@ const Exporter = (() => {
     const v = await pickVideo();
     if (!v) return null;
     const anyAudio = opts.sel.music || opts.sel.sfx || opts.sel.voice;
-    const a = anyAudio ? await pickAudio() : null;
-    if (anyAudio && !a) return null;
+    const sound = anyAudio ? await pickSound(opts.soundPref || 'auto') : null;
     const vSamples = []; let vDesc = null, err = null;
     const ve = new VideoEncoder({
       output: (chunk, meta) => {
@@ -2308,39 +2341,52 @@ const Exporter = (() => {
     if (anyAudio) {
       opts.onProgress(0.93, 'Encoding sound');
       const { L, R } = Snd.mix(opts.sel);
-      const aSamples = []; let aDesc = null;
-      const ae = new AudioEncoder({
-        output: (chunk, meta) => {
-          if (meta && meta.decoderConfig && meta.decoderConfig.description && !aDesc) aDesc = bytes(meta.decoderConfig.description);
-          const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b);
-          aSamples.push({ data: b, pts: Math.round(chunk.timestamp * 48000 / 1e6), dur: Math.max(1, Math.round((chunk.duration || 21333) * 48000 / 1e6)) });
-        },
-        error: (e) => { err = e; },
-      });
-      ae.configure(a.cfg);
-      const step = 4800;
-      for (let off = 0; off < L.length; off += step) {
-        const n = Math.min(step, L.length - off), d = new Float32Array(n * 2);
-        d.set(L.subarray(off, off + n), 0); d.set(R.subarray(off, off + n), n);
-        const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(off * 1e6 / 48000), data: d });
-        ae.encode(ad); ad.close();
-        while (ae.encodeQueueSize > 8) await sleep(1);
+      const BLOCK = 4800;
+      if (sound === 'pcm') {
+        const samples = [];
+        for (let off = 0; off < L.length; off += BLOCK) {
+          const n = Math.min(BLOCK, L.length - off), b = new Uint8Array(n * 4), dv = new DataView(b.buffer);
+          for (let i = 0; i < n; i++) {
+            dv.setInt16(i * 4, Math.round(Math.max(-1, Math.min(1, L[off + i])) * 32767), true);
+            dv.setInt16(i * 4 + 2, Math.round(Math.max(-1, Math.min(1, R[off + i])) * 32767), true);
+          }
+          samples.push({ data: b, pts: off, dur: n });
+        }
+        tracks.push({ kind: 'audio', codec: 'pcm', timescale: 48000, channels: 2, sampleRate: 48000, samples });
+      } else {
+        const aSamples = []; let aDesc = null;
+        const ae = new AudioEncoder({
+          output: (chunk, meta) => {
+            if (meta && meta.decoderConfig && meta.decoderConfig.description && !aDesc) aDesc = bytes(meta.decoderConfig.description);
+            let b = new Uint8Array(chunk.byteLength); chunk.copyTo(b);
+            // some encoders hand back ADTS-framed AAC; MP4 needs raw frames, so strip the header
+            if (b.length > 7 && b[0] === 0xFF && (b[1] & 0xF6) === 0xF0) {
+              if (!aDesc) { const prof = ((b[2] >> 6) & 3) + 1, fi = (b[2] >> 2) & 15, ch = ((b[2] & 1) << 2) | (b[3] >> 6); aDesc = new Uint8Array([(prof << 3) | (fi >> 1), ((fi & 1) << 7) | (ch << 3)]); }
+              b = b.subarray((b[1] & 1) ? 7 : 9);
+            }
+            aSamples.push({ data: b, pts: Math.round(chunk.timestamp * 48000 / 1e6), dur: 1024 });
+          },
+          error: (e) => { err = e; },
+        });
+        ae.configure({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000, aac: { format: 'aac' } });
+        for (let off = 0; off < L.length; off += BLOCK) {
+          const n = Math.min(BLOCK, L.length - off), d = new Float32Array(n * 2);
+          d.set(L.subarray(off, off + n), 0); d.set(R.subarray(off, off + n), n);
+          const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(off * 1e6 / 48000), data: d });
+          ae.encode(ad); ad.close();
+          while (ae.encodeQueueSize > 8) await sleep(1);
+        }
+        await ae.flush(); ae.close();
+        if (err) throw err;
+        const secs = aSamples.length * 1024 / 48000;
+        if (secs < Story.T_END - 1) throw new Error('The sound encoder returned only ' + secs.toFixed(1) + ' s of audio, so the file was not saved.');
+        tracks.push({ kind: 'audio', codec: 'aac', timescale: 48000, channels: 2, sampleRate: 48000, bitrate: 192000, samples: aSamples,
+          description: aDesc && aDesc.length ? aDesc : new Uint8Array([0x11, 0x90]) });
       }
-      await ae.flush(); ae.close();
-      if (err) throw err;
-      const secs = aSamples.reduce((s, c) => s + c.dur, 0) / 48000;
-      if (secs < Story.T_END - 1) throw new Error('The sound encoder returned only ' + secs.toFixed(1) + ' s of audio, so the file was not saved.');
-      const tr = { kind: 'audio', codec: a.kind, timescale: 48000, channels: 2, sampleRate: 48000, bitrate: 192000, samples: aSamples };
-      if (a.kind === 'aac') tr.description = aDesc && aDesc.length ? aDesc : new Uint8Array([0x11, 0x90]);
-      else {
-        tr.preSkip = 312;
-        if (aDesc && aDesc.length >= 19 && String.fromCharCode(...aDesc.slice(0, 8)) === 'OpusHead') { tr.preSkip = aDesc[10] | (aDesc[11] << 8); tr.inputRate = aDesc[12] | (aDesc[13] << 8) | (aDesc[14] << 16) | (aDesc[15] << 24); }
-      }
-      tracks.push(tr);
     }
     opts.onProgress(0.99, 'Writing the file');
     const parts = Mux.build(tracks);
-    return { blob: new Blob(parts, { type: 'video/mp4' }), ext: 'mp4', video: v.kind === 'avc' ? 'H.264' : 'VP9', audio: a ? (a.kind === 'aac' ? 'AAC' : 'Opus') : null, codec: v.kind + (a ? ' + ' + a.kind : '') };
+    return { blob: new Blob(parts, { type: 'video/mp4' }), ext: 'mp4', video: v.kind === 'avc' ? 'H.264' : 'VP9', audio: sound ? (sound === 'aac' ? 'AAC' : 'uncompressed PCM') : null, codec: v.kind + (sound ? ' + ' + sound : '') };
   }
 
   // realtime fallback for browsers without WebCodecs
@@ -2385,12 +2431,13 @@ const Exporter = (() => {
     if (r) return r;
     return realtime(opts);
   }
-  async function describe() {
-    const v = await pickVideo(), a = await pickAudio();
-    if (v && a) return { ok: a.kind === 'aac', text: (v.kind === 'avc' ? 'H.264' : 'VP9') + ' video with ' + (a.kind === 'aac' ? 'AAC' : 'Opus') + ' sound' };
-    return { ok: false, text: 'real-time recording', realtime: true };
+  async function describe(pref) {
+    const v = await pickVideo();
+    if (!v) return { text: 'This browser has no frame-by-frame encoder, so export records in real time (60 seconds).' };
+    const s = await pickSound(pref || 'auto');
+    return { text: 'This browser will export ' + (v.kind === 'avc' ? 'H.264' : 'VP9') + ' video with ' + (s === 'aac' ? 'AAC sound.' : 'uncompressed PCM sound, which QuickTime, Final Cut, Premiere, Resolve and VLC all play.') };
   }
-  return { run, pickVideo, pickAudio, describe };
+  return { run, pickVideo, pickSound, describe };
 })();
 
 // ---------- main.js : renderer, post chain wiring, playback, UI ----------
@@ -2570,13 +2617,10 @@ const Exporter = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     exMsg.textContent = 'Saved ' + name + '.' + note;
   }
-  const OPUS_NOTE = ' This browser can only encode Opus sound. The file plays with sound in VLC, Chrome, Edge and Firefox, but QuickTime, Windows Media Player and some editors show it as silent. Export from Chrome or Edge on Windows or macOS to get AAC sound, or use Save soundtrack (WAV) and attach it in your editor.';
   // what this browser will produce, shown before anyone exports
-  Exporter.describe().then(d => {
-    const el = $('#exCodec'); if (!el) return;
-    el.textContent = d.realtime ? 'This browser has no frame-by-frame encoder, so export records in real time (60 seconds).' :
-      'This browser will export ' + d.text + '.' + (d.ok ? '' : ' Opus sound does not play in QuickTime or Windows Media Player.');
-  }).catch(() => { });
+  const showCodec = () => Exporter.describe($('#exSound').value).then(d => { $('#exCodec').textContent = d.text; }).catch(() => { });
+  showCodec();
+  $('#exSound').addEventListener('change', showCodec);
   function wav(L, R) {
     const n = L.length, buf = new ArrayBuffer(44 + n * 4), dv = new DataView(buf);
     const w = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
@@ -2610,7 +2654,7 @@ const Exporter = (() => {
       ensureCtx();
       if (four3) setFrame(1440, 1080);
       const r = await Exporter.run({
-        sel, canvas, audioCtx: actx, buffers: bufs, width: OUT_W, height: OUT_H,
+        sel, canvas, audioCtx: actx, buffers: bufs, width: OUT_W, height: OUT_H, soundPref: $('#exSound').value,
         renderAt: (t) => renderAt(t, burn),
         onProgress: (f, m) => { exBar.value = f; exMsg.textContent = m; },
         isCancelled: () => cancel,
@@ -2621,7 +2665,7 @@ const Exporter = (() => {
         const name = 'environmental-verification' + (four3 ? '-4x3' : '') + (parts.length === 3 ? '' : parts.length ? '-' + parts.join('-') : '-silent') + '.' + r.ext;
         exBar.value = 1;
         const anyA = sel.music || sel.sfx || sel.voice;
-        const note = !anyA ? ' No sound layers were ticked, so the file is silent.' : r.audio === 'Opus' ? OPUS_NOTE : r.audio ? ' ' + (r.video === 'recorded' ? 'Recorded' : r.video + ' video') + ' with ' + r.audio + ' sound.' : '';
+        const note = !anyA ? ' No sound layers were ticked, so the file is silent.' : r.audio ? ' ' + (r.video === 'recorded' ? 'Recorded' : r.video + ' video') + ' with ' + r.audio + ' sound.' : '';
         await save(r.blob, name, note);
       }
     } catch (e) { exMsg.textContent = 'Export stopped: ' + (e && e.message ? e.message : e); console.error(e); }
