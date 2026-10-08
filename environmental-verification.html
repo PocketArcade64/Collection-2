@@ -96,8 +96,8 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
   </ul>
   <div class="below">
     <div class="label">
-      <h2>Lantern Hollow</h2>
-      <p>Environment 14, verification after the external observation feed failed.</p>
+      <h2>Luminous Hollow</h2>
+      <p>Environment 3, verification after the external observation feed failed.</p>
       <div class="field"><span class="k">Source</span><span>Handheld inspection camera, recovered from the forest floor</span></div>
       <div class="field"><span class="k">Length</span><span>60 seconds, one continuous recording</span></div>
       <div class="field"><span class="k">Status</span><span>Technician not located. Environment returned to expected state.</span></div>
@@ -120,8 +120,10 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
         </div>
         <div class="row">
           <button id="exportBtn" class="primary" disabled>Export MP4</button>
+          <button id="wavBtn">Save soundtrack (WAV)</button>
           <button id="exportCancel" hidden>Cancel export</button>
         </div>
+        <div id="exCodec" class="msg"></div>
         <progress id="exportBar" max="1" value="0" hidden></progress>
         <div id="exportMsg" class="msg" aria-live="polite"></div>
       </section>
@@ -1769,8 +1771,8 @@ const OSD = (() => {
     text('VERIFY MODE', 676, 58, 2, 'right');
     text(clock, 676, 488, 2, 'right');
     if (title) {
-      text('LANTERN HOLLOW', 360, 196, 4, 'center');
-      text('ENV 14  VERIFICATION', 360, 246, 3, 'center');
+      text('LUMINOUS HOLLOW', 360, 196, 4, 'center');
+      text('ENV 3  VERIFICATION', 360, 246, 3, 'center');
     }
     return true;
   }
@@ -2326,6 +2328,8 @@ const Exporter = (() => {
       }
       await ae.flush(); ae.close();
       if (err) throw err;
+      const secs = aSamples.reduce((s, c) => s + c.dur, 0) / 48000;
+      if (secs < Story.T_END - 1) throw new Error('The sound encoder returned only ' + secs.toFixed(1) + ' s of audio, so the file was not saved.');
       const tr = { kind: 'audio', codec: a.kind, timescale: 48000, channels: 2, sampleRate: 48000, bitrate: 192000, samples: aSamples };
       if (a.kind === 'aac') tr.description = aDesc && aDesc.length ? aDesc : new Uint8Array([0x11, 0x90]);
       else {
@@ -2336,7 +2340,7 @@ const Exporter = (() => {
     }
     opts.onProgress(0.99, 'Writing the file');
     const parts = Mux.build(tracks);
-    return { blob: new Blob(parts, { type: 'video/mp4' }), ext: 'mp4', codec: v.kind + (a ? ' + ' + a.kind : '') };
+    return { blob: new Blob(parts, { type: 'video/mp4' }), ext: 'mp4', video: v.kind === 'avc' ? 'H.264' : 'VP9', audio: a ? (a.kind === 'aac' ? 'AAC' : 'Opus') : null, codec: v.kind + (a ? ' + ' + a.kind : '') };
   }
 
   // realtime fallback for browsers without WebCodecs
@@ -2345,6 +2349,7 @@ const Exporter = (() => {
     const mime = mimes.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
     if (!mime) throw new Error('This browser cannot record video from the page.');
     const ctx = opts.audioCtx;
+    if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) { } }
     const dest = ctx.createMediaStreamDestination();
     const stream = opts.canvas.captureStream(FPS);
     const bufs = opts.buffers;
@@ -2371,7 +2376,8 @@ const Exporter = (() => {
     rec.stop(); await done;
     if (opts.isCancelled()) return { cancelled: true };
     const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
-    return { blob: new Blob(parts, { type: mime.split(';')[0] }), ext, codec: mime };
+    const any = opts.sel.music || opts.sel.sfx || opts.sel.voice;
+    return { blob: new Blob(parts, { type: mime.split(';')[0] }), ext, codec: mime, video: 'recorded', audio: any ? (/mp4a/.test(mime) || ext === 'mp4' ? 'AAC' : 'Opus') : null, realtime: true };
   }
   async function run(opts) {
     W = opts.width || 1920; H = opts.height || 1080;
@@ -2379,7 +2385,12 @@ const Exporter = (() => {
     if (r) return r;
     return realtime(opts);
   }
-  return { run, pickVideo, pickAudio };
+  async function describe() {
+    const v = await pickVideo(), a = await pickAudio();
+    if (v && a) return { ok: a.kind === 'aac', text: (v.kind === 'avc' ? 'H.264' : 'VP9') + ' video with ' + (a.kind === 'aac' ? 'AAC' : 'Opus') + ' sound' };
+    return { ok: false, text: 'real-time recording', realtime: true };
+  }
+  return { run, pickVideo, pickAudio, describe };
 })();
 
 // ---------- main.js : renderer, post chain wiring, playback, UI ----------
@@ -2546,9 +2557,9 @@ const Exporter = (() => {
   const exBtn = $('#exportBtn'), exCancel = $('#exportCancel'), exBar = $('#exportBar'), exMsg = $('#exportMsg');
   let downloads = null;
   if (window.claude && typeof window.claude.use === 'function') window.claude.use('downloads').then(d => { downloads = d; }).catch(() => { });
-  async function save(blob, name) {
+  async function save(blob, name, note = '') {
     if (downloads) {
-      try { await downloads.save({ filename: name, data: blob }); exMsg.textContent = 'Saved ' + name + '.'; return; }
+      try { await downloads.save({ filename: name, data: blob }); exMsg.textContent = 'Saved ' + name + '.' + note; return; }
       catch (e) {
         if (e && e.code === 'declined') { exMsg.textContent = 'Save cancelled. Export again to get the file.'; return; }
         if (e && e.code === 'too_large') { exMsg.textContent = 'The file is too large for this save destination.'; return; }
@@ -2556,14 +2567,43 @@ const Exporter = (() => {
     }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
-    exMsg.textContent = 'Saved ' + name + '.';
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    exMsg.textContent = 'Saved ' + name + '.' + note;
   }
+  const OPUS_NOTE = ' This browser can only encode Opus sound. The file plays with sound in VLC, Chrome, Edge and Firefox, but QuickTime, Windows Media Player and some editors show it as silent. Export from Chrome or Edge on Windows or macOS to get AAC sound, or use Save soundtrack (WAV) and attach it in your editor.';
+  // what this browser will produce, shown before anyone exports
+  Exporter.describe().then(d => {
+    const el = $('#exCodec'); if (!el) return;
+    el.textContent = d.realtime ? 'This browser has no frame-by-frame encoder, so export records in real time (60 seconds).' :
+      'This browser will export ' + d.text + '.' + (d.ok ? '' : ' Opus sound does not play in QuickTime or Windows Media Player.');
+  }).catch(() => { });
+  function wav(L, R) {
+    const n = L.length, buf = new ArrayBuffer(44 + n * 4), dv = new DataView(buf);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+    dv.setUint16(22, 2, true); dv.setUint32(24, 48000, true); dv.setUint32(28, 48000 * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true);
+    w(36, 'data'); dv.setUint32(40, n * 4, true);
+    let o = 44; for (let i = 0; i < n; i++) { dv.setInt16(o, Math.max(-1, Math.min(1, L[i])) * 32767, true); dv.setInt16(o + 2, Math.max(-1, Math.min(1, R[i])) * 32767, true); o += 4; }
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+  $('#wavBtn').addEventListener('click', async () => {
+    if (!audioReady) return;
+    const sel = { music: $('#exMusic').checked, sfx: $('#exSfx').checked, voice: $('#exVoice').checked };
+    if (!sel.music && !sel.sfx && !sel.voice) { exMsg.textContent = 'Tick at least one sound layer to save a soundtrack.'; return; }
+    const { L, R } = Snd.mix(sel);
+    const parts = [sel.music && 'hum', sel.sfx && 'sfx', sel.voice && 'voice'].filter(Boolean);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(wav(L, R));
+    a.download = 'environmental-verification-soundtrack' + (parts.length === 3 ? '' : '-' + parts.join('-')) + '.wav';
+    document.body.appendChild(a); a.click(); a.remove();
+    exMsg.textContent = 'Saved ' + a.download + '. It lines up with the video from 0:00.';
+  });
   exBtn.addEventListener('click', async () => {
     if (!ready || !audioReady || exporting) return;
     const sel = { music: $('#exMusic').checked, sfx: $('#exSfx').checked, voice: $('#exVoice').checked };
     const burn = $('#exCaps').checked;
     const four3 = $('#exFrame43').checked;
     pause(); exporting = true; cancel = false;
+    if (actx && actx.state !== 'running') { try { await actx.resume(); } catch (e) { } }
     exBtn.disabled = true; exCancel.hidden = false; exBar.hidden = false; exBar.value = 0;
     exMsg.textContent = 'Starting';
     try {
@@ -2580,7 +2620,9 @@ const Exporter = (() => {
         const parts = [sel.music && 'hum', sel.sfx && 'sfx', sel.voice && 'voice'].filter(Boolean);
         const name = 'environmental-verification' + (four3 ? '-4x3' : '') + (parts.length === 3 ? '' : parts.length ? '-' + parts.join('-') : '-silent') + '.' + r.ext;
         exBar.value = 1;
-        await save(r.blob, name);
+        const anyA = sel.music || sel.sfx || sel.voice;
+        const note = !anyA ? ' No sound layers were ticked, so the file is silent.' : r.audio === 'Opus' ? OPUS_NOTE : r.audio ? ' ' + (r.video === 'recorded' ? 'Recorded' : r.video + ' video') + ' with ' + r.audio + ' sound.' : '';
+        await save(r.blob, name, note);
       }
     } catch (e) { exMsg.textContent = 'Export stopped: ' + (e && e.message ? e.message : e); console.error(e); }
     setFrame(1920, 1080);
