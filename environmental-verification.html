@@ -57,6 +57,10 @@ section.panel + section.panel { margin-top: 30px; padding-top: 24px; border-top:
 .checks label { display: flex; gap: 10px; align-items: center; font-size: 16px; cursor: pointer; }
 input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--glow); }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+fieldset.frame { border: 0; padding: 0; margin: 4px 0 14px; display: flex; flex-wrap: wrap; gap: 8px 22px; }
+fieldset.frame legend { font-size: 15px; color: var(--muted); padding: 0; margin-bottom: 6px; }
+fieldset.frame label { display: flex; gap: 10px; align-items: center; font-size: 16px; cursor: pointer; }
+input[type=radio] { width: 18px; height: 18px; accent-color: var(--glow); }
 progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow); }
 .msg { color: var(--muted); font-size: 15px; margin-top: 8px; min-height: 1.5em; }
 .hint { color: var(--muted); font-size: 15px; margin: 0 0 12px; max-width: 62ch; }
@@ -102,7 +106,12 @@ progress { width: 100%; height: 6px; margin-top: 14px; accent-color: var(--glow)
     <div>
       <section class="panel" aria-labelledby="exH">
         <h3 id="exH">Export MP4</h3>
-        <p class="hint">Renders frame by frame at 1920×1080, 30 fps, so the file has no dropped frames. Untick a layer to leave it out of the file.</p>
+        <p class="hint">Renders frame by frame at 30 fps, so the file has no dropped frames. Untick a layer to leave it out of the file.</p>
+        <fieldset class="frame">
+          <legend>Frame</legend>
+          <label><input type="radio" name="exFrame" id="exFrame169" checked> 16:9 with pillarbox (1920×1080)</label>
+          <label><input type="radio" name="exFrame" id="exFrame43"> 4:3, no pillarbox (1440×1080)</label>
+        </fieldset>
         <div class="checks">
           <label><input id="exMusic" type="checkbox" checked> Music (forest hum)</label>
           <label><input id="exSfx" type="checkbox" checked> Sound effects</label>
@@ -2238,7 +2247,8 @@ const Mux = (() => {
 
 // ---------- export.js : frame-accurate MP4 export (WebCodecs + Mux), realtime fallback ----------
 const Exporter = (() => {
-  const FPS = 30, W = 1920, H = 1080;
+  const FPS = 30;
+  let W = 1920, H = 1080;
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   async function pickVideo() {
     if (typeof VideoEncoder === 'undefined') return null;
@@ -2364,6 +2374,7 @@ const Exporter = (() => {
     return { blob: new Blob(parts, { type: mime.split(';')[0] }), ext, codec: mime };
   }
   async function run(opts) {
+    W = opts.width || 1920; H = opts.height || 1080;
     const r = await webcodecs(opts);
     if (r) return r;
     return realtime(opts);
@@ -2377,7 +2388,15 @@ const Exporter = (() => {
   const canvas = $('#film');
   const status = $('#status');
   const setStatus = (m) => { status.textContent = m; };
-  const OUT_W = 1920, OUT_H = 1080;
+  let OUT_W = 1920, OUT_H = 1080;
+  // output frame: 16:9 with the camcorder image pillarboxed, or the bare 4:3 image
+  function setFrame(w, h) {
+    OUT_W = w; OUT_H = h;
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    canvas.style.aspectRatio = w + ' / ' + h;
+    dirty = true;
+  }
   const EXPO_K = 1.0;
   let gl, texOSD, texCap, ready = false, audioReady = false;
 
@@ -2543,13 +2562,15 @@ const Exporter = (() => {
     if (!ready || !audioReady || exporting) return;
     const sel = { music: $('#exMusic').checked, sfx: $('#exSfx').checked, voice: $('#exVoice').checked };
     const burn = $('#exCaps').checked;
+    const four3 = $('#exFrame43').checked;
     pause(); exporting = true; cancel = false;
     exBtn.disabled = true; exCancel.hidden = false; exBar.hidden = false; exBar.value = 0;
     exMsg.textContent = 'Starting';
     try {
       ensureCtx();
+      if (four3) setFrame(1440, 1080);
       const r = await Exporter.run({
-        sel, canvas, audioCtx: actx, buffers: bufs,
+        sel, canvas, audioCtx: actx, buffers: bufs, width: OUT_W, height: OUT_H,
         renderAt: (t) => renderAt(t, burn),
         onProgress: (f, m) => { exBar.value = f; exMsg.textContent = m; },
         isCancelled: () => cancel,
@@ -2557,11 +2578,12 @@ const Exporter = (() => {
       if (r.cancelled) exMsg.textContent = 'Export cancelled.';
       else {
         const parts = [sel.music && 'hum', sel.sfx && 'sfx', sel.voice && 'voice'].filter(Boolean);
-        const name = 'environmental-verification' + (parts.length === 3 ? '' : parts.length ? '-' + parts.join('-') : '-silent') + '.' + r.ext;
+        const name = 'environmental-verification' + (four3 ? '-4x3' : '') + (parts.length === 3 ? '' : parts.length ? '-' + parts.join('-') : '-silent') + '.' + r.ext;
         exBar.value = 1;
         await save(r.blob, name);
       }
     } catch (e) { exMsg.textContent = 'Export stopped: ' + (e && e.message ? e.message : e); console.error(e); }
+    setFrame(1920, 1080);
     exporting = false; exBtn.disabled = false; exCancel.hidden = true; dirty = true;
   });
   exCancel.addEventListener('click', () => { cancel = true; });
@@ -2580,7 +2602,7 @@ const Exporter = (() => {
     setStatus('Ready');
     playBtn.disabled = false; exBtn.disabled = false;
     $('#statusWrap').classList.add('done');
-    window.__film = { renderAt, computeExposure, TUNE, Story, World, Snd, Exporter, Mux, ready: () => ready && audioReady };
+    window.__film = { renderAt, setFrame, computeExposure, TUNE, Story, World, Snd, Exporter, Mux, ready: () => ready && audioReady };
   }, 30));
 })();
 
