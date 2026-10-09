@@ -1,0 +1,1687 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Untitled</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --deck: #1d1c19; --panel: #262420; --rule: #3b3833; --ink: #e8e3d5; --muted: #a39d8c; --rec: #e8261c; --tape: #c9a24a;
+  --sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif; --mono: 'IBM Plex Mono', 'Courier New', monospace; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--deck); color: var(--ink); font: 400 15px/1.5 var(--sans); }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+main { max-width: 1280px; margin: 0 auto; padding: 20px 20px 48px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+h1 { font: 700 19px/1.2 var(--sans); margin: 0; letter-spacing: .01em; }
+h2 { font: 600 15px/1.3 var(--sans); margin: 0 0 12px; }
+.dim, header p { color: var(--muted); }
+header p { margin: 0; font-size: 13px; }
+.screen { background: #000; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px var(--rule); }
+canvas#film { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.transport { display: grid; grid-template-columns: auto auto 1fr; gap: 14px; align-items: center; padding: 12px 0 6px; }
+.mono { font-family: var(--mono); font-weight: 500; }
+#tc { font: 500 14px var(--mono); min-width: 13ch; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--tape); }
+button { font: 600 14px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; padding: 7px 14px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button.rec { background: var(--rec); border-color: var(--rec); color: #fff; }
+button.rec::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #fff; margin-right: 8px; vertical-align: 1px; }
+#play { min-width: 84px; }
+:focus-visible { outline: 2px solid var(--tape); outline-offset: 2px; }
+.views { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; padding: 4px 0 18px; border-bottom: 1px solid var(--rule); }
+.views .spacer { flex: 1; }
+label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+input[type=checkbox], input[type=radio] { accent-color: var(--tape); width: 15px; height: 15px; margin: 0; }
+#status { color: var(--muted); font-size: 13px; padding: 10px 0 0; min-height: 30px; }
+.cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 36px; padding-top: 22px; }
+fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+legend { padding: 0; margin-bottom: 6px; color: var(--muted); font-size: 13px; }
+fieldset .row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+select { font: 400 14px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; padding: 6px 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 10px; }
+progress { width: 100%; height: 6px; accent-color: var(--rec); }
+#ex-hint, #ex-status, #mixinfo { font-size: 13px; color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
+.file { display: inline-block; position: relative; }
+.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.file span { display: inline-block; font: 600 14px var(--sans); background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; padding: 7px 14px; }
+.file input:focus-visible + span { outline: 2px solid var(--tape); outline-offset: 2px; }
+.voice p { color: var(--muted); font-size: 13px; margin: 8px 0 14px; max-width: 62ch; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td { padding: 7px 10px 7px 0; border-top: 1px solid var(--rule); vertical-align: top; }
+td:first-child { white-space: nowrap; color: var(--tape); }
+@media (max-width: 820px) { .cols { grid-template-columns: 1fr; gap: 26px; } .transport { grid-template-columns: auto 1fr; } .transport input { grid-column: 1 / -1; } main { padding: 12px 12px 40px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style></head>
+<body><main>
+<header><h1>Untitled</h1><p>Found footage kit. Edit story.js and world.js to make a new film.</p></header>
+<div class="screen"><canvas id="film" width="1920" height="1080" aria-label="Film"></canvas></div>
+<div class="transport">
+  <button id="play" disabled aria-pressed="false">Play</button>
+  <span id="tc">0:00.00 / 0:00.00</span>
+  <input id="scrub" type="range" min="0" value="0" aria-label="Position in the film">
+</div>
+<div class="views">
+  <label><input type="checkbox" id="caps" checked> Captions</label>
+  <label><input type="checkbox" id="osd" checked> Camera display</label>
+  <label><input type="checkbox" id="fill"> Fill 16:9, no pillarbox</label>
+  <span class="spacer"></span>
+  <button id="save-png">Save frame (PNG)</button>
+</div>
+<div id="status" role="status">Loading</div>
+<div class="cols">
+  <section id="export" aria-labelledby="ex-h">
+    <h2 id="ex-h">Export</h2>
+    <fieldset><legend>Frame</legend><div class="row">
+      <label><input type="radio" name="frame" value="16x9" checked> 16:9 with pillarbox (1920×1080)</label>
+      <label><input type="radio" name="frame" value="4x3"> 4:3 (1440×1080)</label></div></fieldset>
+    <fieldset><legend>Sound in the file</legend><div class="row">
+      <label><input type="checkbox" id="st-music" checked> Music</label>
+      <label><input type="checkbox" id="st-fx" checked> Effects</label>
+      <label><input type="checkbox" id="st-voice" checked> Voice</label></div></fieldset>
+    <fieldset><legend>Picture</legend><div class="row">
+      <label><input type="checkbox" id="ex-caps"> Burn in captions</label>
+      <label><input type="checkbox" id="ex-osd" checked> Camera display</label></div></fieldset>
+    <fieldset><legend><label for="ex-sound">Sound format</label></legend>
+      <select id="ex-sound"><option value="auto">Automatic</option><option value="pcm">Uncompressed PCM (plays everywhere, larger)</option><option value="aac">AAC (smaller)</option></select></fieldset>
+    <p id="ex-hint"></p>
+    <div class="actions"><button id="export-mp4" class="rec">Export MP4</button><button id="save-wav">Save soundtrack (WAV)</button></div>
+    <progress id="progress" max="1" value="0" hidden></progress>
+    <p id="ex-status" role="status"></p>
+  </section>
+  <section class="voice" aria-labelledby="v-h">
+    <h2 id="v-h">Voice</h2>
+    <label class="file"><input type="file" id="voices" accept="audio/*,.wav" multiple><span>Load voice recordings</span></label>
+    <p>Until recordings are loaded, each line plays as a wordless murmur that follows its timing. Name each file after its line id, for example w1.wav, and load them all at once.</p>
+    <div class="tablewrap"><table><tbody id="cues"></tbody></table></div>
+    <p id="mixinfo"></p>
+  </section>
+</div>
+</main>
+<script>
+// ---------- util.js : math, seeded RNG, noise, keyframe tracks, eases, mat4, GL helpers, TUNE (reusable as is) ----------
+const Util = (() => {
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const seg = (t, a, b) => clamp((t - a) / (b - a));
+  const ss = x => x * x * (3 - 2 * x);
+  // 1 inside [a, b], ramping in over fi and out over fo
+  const env = (t, a, b, fi, fo) => clamp(Math.min((t - a) / fi, (b - t) / fo));
+  const fract = x => x - Math.floor(x);
+  const hash = n => fract(Math.sin(n * 127.1 + 311.7) * 43758.5453);
+  const vnoise = x => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(hash(i), hash(i + 1), u); };
+  // multi-octave noise in [-0.5, 0.5]
+  const fbm1 = (x, oct = 3) => { let s = 0, a = .5, n = 0; for (let k = 0; k < oct; k++) { s += a * (vnoise(x + k * 37.7) - .5); n += a; x *= 2.07; a *= .5; } return s / n * .5 / .5; };
+  function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // ---------- keyframe tracks ----------
+  // track([[t, value, ease], ...]): the ease applies to the segment ENDING at that key. Values: numbers or arrays.
+  const walkE = (x, a = .2) => { const v = 1 / (1 - a); if (x < a) return .5 * v * x * x / a; if (x > 1 - a) return 1 - .5 * v * (1 - x) ** 2 / a; return v * (x - a / 2); };
+  const EASE = {
+    lin: x => x, smooth: ss, out: x => 1 - (1 - x) ** 3, in: x => x * x * x, hold: x => (x < 1 ? 0 : 1),
+    walk: walkE,                                                     // trapezoid velocity (no 1.5x lurch)
+    whip: x => { const s = 1.4; x -= 1; return x * x * ((s + 1) * x + s) + 1; },   // mild overshoot
+  };
+  function track(keys) {
+    const f = t => {
+      if (t <= keys[0][0]) return keys[0][1];
+      for (let i = 1; i < keys.length; i++) {
+        const [t1, v1, e = 'smooth'] = keys[i];
+        if (t <= t1) {
+          const [t0, v0] = keys[i - 1], u = EASE[e]((t - t0) / Math.max(1e-6, t1 - t0));
+          return Array.isArray(v0) ? v0.map((a, k) => lerp(a, v1[k], u)) : lerp(v0, v1, u);
+        }
+      }
+      return keys[keys.length - 1][1];
+    };
+    f.keys = keys; return f;
+  }
+  // Precompute a stateful simulation into a 120 Hz table so playback/scrub/export are pure functions of t
+  function table(dur, step) {
+    const R = 120, n = Math.ceil(dur * R) + 2, a = new Float32Array(n); let st = null;
+    for (let i = 0; i < n; i++) { const r = step(i / R, 1 / R, st); st = r.state; a[i] = r.v; }
+    return t => { const f = clamp(t * R, 0, n - 1.001), i = Math.floor(f); return lerp(a[i], a[i + 1], f - i); };
+  }
+
+
+  // ---------- path: Catmull-Rom through hand-placed [x, z] points, arc-length parametrised (metres) ----------
+  // yaw convention: yaw 0 looks down -z; forward = (-sin yaw, -cos yaw); right = (cos yaw, -sin yaw)
+  function path(pts, n = 24) {
+    const P = [pts[0], ...pts, pts[pts.length - 1]], D = [];
+    const cr = (a, b, c, d, t) => { const t2 = t * t, t3 = t2 * t; return [0, 1].map(k => .5 * (2 * b[k] + (-a[k] + c[k]) * t + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t2 + (-a[k] + 3 * b[k] - 3 * c[k] + d[k]) * t3)); };
+    for (let i = 1; i < P.length - 2; i++) for (let k = 0; k < n; k++) D.push(cr(P[i - 1], P[i], P[i + 1], P[i + 2], k / n));
+    D.push(pts[pts.length - 1]);
+    const L = [0]; for (let i = 1; i < D.length; i++) L.push(L[i - 1] + Math.hypot(D[i][0] - D[i - 1][0], D[i][1] - D[i - 1][1]));
+    const len = L[L.length - 1];
+    function at(s) {
+      s = clamp(s, 0, len); let lo = 0, hi = L.length - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L[m] <= s) lo = m; else hi = m; }
+      const f = (s - L[lo]) / Math.max(1e-9, L[hi] - L[lo]), a = D[lo], b = D[hi];
+      const dx = b[0] - a[0], dz = b[1] - a[1];
+      return { x: lerp(a[0], b[0], f), z: lerp(a[1], b[1], f), yaw: Math.atan2(-dx, -dz) };
+    }
+    // heading looking a little ahead (smoother than the raw tangent)
+    const heading = (s, ahead = .9) => { const a = at(s), b = at(s + ahead); return (b.x === a.x && b.z === a.z) ? a.yaw : Math.atan2(-(b.x - a.x), -(b.z - a.z)); };
+    const place = (s, lat = 0, fwd = 0) => { const a = at(s), y = heading(s); return [a.x + Math.cos(y) * lat - Math.sin(y) * fwd, a.z - Math.sin(y) * lat - Math.cos(y) * fwd]; };
+    const yawTo = (s, p) => { const a = at(s); return Math.atan2(-(p[0] - a.x), -(p[1] - a.z)); };
+    return { at, heading, place, yawTo, len };
+  }
+  // unwrap angle b to within pi of a
+  const unwrap = (a, b) => b + Math.round((a - b) / (2 * Math.PI)) * 2 * Math.PI;
+
+  // ---------- mat4 (column-major) ----------
+  function perspective(fovy, aspect, n, f) {
+    const t = 1 / Math.tan(fovy / 2), m = new Float32Array(16);
+    m[0] = t / aspect; m[5] = t; m[10] = (f + n) / (n - f); m[11] = -1; m[14] = 2 * f * n / (n - f); return m;
+  }
+  // Camera rotation like three.js order 'YXZ': R = Ry(yaw) * Rx(pitch) * Rz(roll); camera looks down -Z
+  function camBasis(yaw, pitch, roll) {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cx = Math.cos(pitch), sx = Math.sin(pitch), cz = Math.cos(roll), sz = Math.sin(roll);
+    const Ry = [[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]], Rx = [[1, 0, 0], [0, cx, -sx], [0, sx, cx]], Rz = [[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]];
+    const mul = (A, B) => A.map((r, i) => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+    return mul(mul(Ry, Rx), Rz);   // columns: right, up, back
+  }
+  function viewMatrix(p, R) {
+    const m = new Float32Array(16);
+    for (let r = 0; r < 3; r++) { for (let c = 0; c < 3; c++) m[c * 4 + r] = R[c][r]; m[12 + r] = -(R[0][r] * p[0] + R[1][r] * p[1] + R[2][r] * p[2]); }
+    m[15] = 1; return m;
+  }
+  function mulMat(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
+  function project(m, p) { const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return [x / w, y / w, z / w, w]; }
+
+  // ---------- GL helpers ----------
+  function shader(gl, type, src) {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const log = gl.getShaderInfoLog(s); console.error(src.split('\n').map((l, i) => (i + 1) + ': ' + l).join('\n')); throw new Error('shader: ' + log); }
+    return s;
+  }
+  const FSQ_VS = `#version 300 es
+in vec2 aP; out vec2 vUv; void main(){ vUv = aP * .5 + .5; gl_Position = vec4(aP, 0., 1.); }`;
+  function program(gl, vs, fs) {
+    const p = gl.createProgram(); gl.attachShader(p, shader(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl, gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'aP'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(p));
+    const U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i), name = info.name.replace(/\[0\]$/, ''); U[name] = gl.getUniformLocation(p, info.name); }
+    return { p, U };
+  }
+  function texture(gl, w, h, { internal, format, type, filter, data = null, wrap }) {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap || gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap || gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  // Render target: RGBA16F (or RGBA8) colour, optional depth texture
+  function target(gl, w, h, { float = true, depth = false } = {}) {
+    const color = texture(gl, w, h, float ? { internal: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT, filter: gl.LINEAR } : { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE, filter: gl.LINEAR });
+    const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
+    let dt = null;
+    if (depth) { dt = texture(gl, w, h, { internal: gl.DEPTH_COMPONENT24, format: gl.DEPTH_COMPONENT, type: gl.UNSIGNED_INT, filter: gl.NEAREST }); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, dt, 0); }
+    const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER); if (st !== gl.FRAMEBUFFER_COMPLETE) throw new Error('framebuffer incomplete ' + st);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { fb, color, depth: dt, w, h };
+  }
+  let quadVAO = null;
+  function quad(gl) {
+    if (!quadVAO) { quadVAO = gl.createVertexArray(); gl.bindVertexArray(quadVAO); const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
+    gl.bindVertexArray(quadVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  // ---------- TUNE: look knobs, change live from the console or the test harness ----------
+  const TUNE = {
+    light: 2.0,      // emitter strength on surfaces
+    amb: .18,        // local ambient / bounce
+    falloffK: .28,   // exponential falloff per metre (keeps overlapping lights from flattening the scene)
+    fogD: .045, fogAvg: .35, fogCol: [.16, .15, .12],
+    emis: 1.6,       // fixture brightness as seen by the lens
+    expo: .9, key: .42, maxExp: 2.2,
+    bloom: .55, bloomThr: .95,
+    aoAmt: .45, maxCoc: 9,
+    // VHS
+    jitter: .3, sharp: .9, lumaW: 1.25, chromaW: 5.0, chromaShift: 1.6, sat: 1.0, barrel: .07, vig: .42,
+    black: .045, smear: .35, dropout: 1.0, scan: 0.0,   // scan: optional faint tape-line structure (0 = off, per the playbook)
+  };
+
+  return { path, unwrap, clamp, lerp, seg, ss, env, fract, hash, vnoise, fbm1, mulberry, EASE, track, table, perspective, camBasis, viewMatrix, mulMat, project, program, texture, target, quad, FSQ_VS, TUNE };
+})();
+
+// ---------- story.js : THE FILE YOU REWRITE PER FILM (keep the structure) ----------
+// Everything here is placeholder content: a quiet corridor walk that exercises every system once
+// (autofocus hunt, zoom, flicker, tracking tear + clock jump, one second of silence, a turn into a room).
+// Keys are in ORIGINAL time. Retime the film by changing WARP only, never the keys.
+const Story = (() => {
+  const { track, path } = Util;
+
+  // ---------- identity of the film ----------
+  const SLUG = 'untitled-found-footage';            // export file names
+  const DATE = 'JAN.27.2027';                       // camera display date, MMM.DD.YYYY, no spaces
+  const CLOCK_STYLE = 'ampm-first';                 // 'ampm-first' = "PM 11:58" (new display) | 'ampm-last' = "11:58 PM"
+  const TITLE = ['PLACEHOLDER', 'LOCATION 01'];     // OSD title card lines (null = no title card)
+  const END_CARD = ['UNTITLED', 'FOUND FOOTAGE'];   // end card lines (pixel lettering)
+
+  // ---------- time warp: film time -> original time (piecewise linear) ----------
+  const WARP = [[0, 0], [38, 38]];                  // e.g. [[0,0],[20,20],[38,36]] speeds up the second half
+  const pl = (A, x, i, j) => { for (let k = 1; k < A.length; k++) if (x <= A[k][i] || k === A.length - 1) { const a = A[k - 1], b = A[k], f = (x - a[i]) / (b[i] - a[i]); return a[j] + (b[j] - a[j]) * f; } };
+  const warp = t => pl(WARP, t, 0, 1), unwarp = u => pl(WARP, u, 1, 0);
+  const DUR = WARP[WARP.length - 1][0];
+
+  // ---------- beats (original time) ----------
+  const T = {
+    rollIn: .85,                  // tape roll-in finishes, OSD appears
+    title: [1.1, 5.6],
+    flick: [15.0, 15.5, 16.0],    // three flickers (picture dip + ballast sounds); [] for none
+    tear: [25.0, 25.65],          // tracking tear (null for none)
+    clockJump: 107 * 60,          // seconds the clock skips during the tear (0 for none)
+    hush: [30.2, 31.2],           // one second of digital silence, camera held still (null for none)
+    recOff: 34.6,
+    endCard: [35.0, 38.0],
+  };
+
+  // ---------- route ----------
+  const P = path([[0, 1.6], [0, -6], [0, -15], [.05, -20.2], [.55, -22.5], [2.4, -23.1], [5.2, -23.0]]);
+  const SIDE = [2.8, -8.6];      // dark side opening the camera glances into
+  const FAR = [0, -26];          // end wall
+  const ROOM = [6.4, -23];       // back of the room
+  // distance walked (m) over original time; 'walk' = trapezoid velocity
+  const WALK = track([[0, 0], [2.2, 0], [9.4, 7.0, 'walk'], [10.2, 7.6, 'walk'], [13.8, 10.2, 'walk'], [17.6, 10.2], [24.6, 17.6, 'walk'],
+    [25.65, 17.6], [29.8, 21.4, 'walk'], [31.6, 21.4], [34.6, 24.6, 'walk']]);
+  // yaw offset from the path heading (rad); yawTo() aims at props so moving a prop never breaks framing
+  const glance = P.yawTo(9.6, SIDE) - P.heading(9.6);
+  const YAWOFF = track([[0, 0], [10.4, 0], [11.6, glance * .85, 'smooth'], [13.0, glance * .9], [13.9, 0, 'smooth'], [26.2, 0], [27.0, -.25], [28.6, -.2], [29.4, 0]]);
+  const PITCH = track([[0, -.06], [2.2, -.04], [15.1, -.02], [15.6, .32, 'out'], [17.0, .3], [17.6, -.03], [30.0, -.05], [30.4, -.12], [31.4, -.12], [31.8, -.05]]);
+  const CAMH = track([[0, 0], [38, 0]]);
+  const FOV = track([[0, 52], [18.2, 52], [19.6, 24, 'smooth'], [21.6, 24], [22.4, 52, 'smooth'], [38, 52]]);   // horizontal degrees
+  // autofocus target in metres: 'hold' steps script the hunt (wrong, lock, slip, relock)
+  const FOCUS = track([[0, 1.2], [.9, 9, 'hold'], [1.7, 2.4, 'hold'], [2.3, 6, 'hold'], [11.6, 2.6, 'hold'], [13.9, 7, 'hold'], [19.4, 15, 'hold'], [20.1, 9, 'hold'], [20.6, 16, 'hold'], [22.4, 7, 'hold'], [31.8, 4, 'hold']]);
+  const APER = track([[0, 1], [38, 1]]);
+  const FEAR = track([[0, 0], [14.8, .1], [16.4, .55, 'out'], [24, .35], [25.6, .7], [30.2, .85], [34.6, .9]]);
+
+  // ---------- camera display state ----------
+  const START = 23 * 3600 + 58 * 60;                // 11:58 PM
+  const clockSeconds = t => { const u = warp(t); return START + u + (T.tear && u > T.tear[1] ? T.clockJump : 0); };
+  const battery = t => { const u = warp(t); return u < 25.65 ? 3 : u < 33 ? 2 : 1; };   // 1 bar blinks
+  function tape(t) {
+    const u = warp(t);
+    return {
+      osd: u > T.rollIn && u < T.recOff + .22, rec: u > T.rollIn && u < T.recOff,
+      snow: u < T.rollIn - .45 || (u > T.recOff + .1 && u < T.recOff + .5),
+      off: (u > T.recOff + .5) ? 1 : 0,
+    };
+  }
+
+  // ---------- dialogue ----------
+  // who: 'PA' = ceiling speaker, 'ME' = whispered camera operator. text feeds the cue sheet, captions and the
+  // placeholder murmur. Load real recordings named <id>.wav in the player to replace the murmur.
+  const LINES = [
+    { id: 'w1', who: 'ME', t: 2.6, text: "Okay. It's recording." },
+    { id: 'p1', who: 'PA', t: 6.6, text: 'This floor is now closed. Please make your way to the exit.', chime: 5.8 },
+    { id: 'w2', who: 'ME', t: 12.2, text: "There's nobody else here." },
+    { id: 'w3', who: 'ME', t: 26.4, text: "That's not right." },
+  ];
+  // SDH captions: [PA] prefix for the speaker, it = italic (operator), sounds in [BRACKETS].
+  // end(id, pad, min) and the line durations come from subs.js once voices are known.
+  const CAPTIONS = h => [
+    ...(SOUND.roomTone === 'fluorescent' ? [{ t0: .9, t1: 2.5, text: '[FLUORESCENT LIGHTS HUMMING]' }] : []),
+    { t0: h.L.w1, t1: h.end('w1'), text: "(whispering) Okay. It's recording.", it: true },
+    { t0: h.L.p1, t1: h.end('p1'), text: '[PA] This floor is now closed. Please make your way to the exit.' },
+    { t0: h.L.w2, t1: h.end('w2'), text: "There's nobody else here.", it: true },
+    { t0: T.flick[0] - .05, t1: T.flick[0] + 1.9, text: '[LIGHTS FLICKER]' },
+    { t0: T.tear[0], t1: T.tear[1] + .5, text: '[TAPE NOISE]' },
+    { t0: h.L.w3, t1: h.end('w3'), text: "That's not right.", it: true },
+    { t0: T.hush[0], t1: T.hush[1] + .1, text: '[SILENCE]' },
+  ];
+
+  // ---------- sound cues not derived from motion (original time) ----------
+  // Footsteps, breath, cloth rustle (from camera turn rate), zoom servo and autofocus ticks are automatic.
+  const SOUND = {
+    // room tone is a story decision: 'fluorescent' only when buzzing tubes belong to the scene (it gets
+    // tiring), 'air' for a quiet room, null for nothing at all
+    roomTone: 'air',
+    zoom: null,                           // [[t0, t1], ...] servo windows; null = follow the FOV keyframes
+    rustle: [[15.6, .9], [30.4, .6]],      // extra cloth moves: [t, strength]
+    extra: [],                            // custom {t, type, ...}: add a generator in audio.js CUSTOM
+    musicEnd: 30.2,                       // in-world music stops (null = keep playing)
+    drone: [24.0, 30.2],                  // low dread bed window (null = none)
+  };
+
+  return { SLUG, DATE, CLOCK_STYLE, TITLE, END_CARD, DUR, warp, unwarp, T, P, WALK, YAWOFF, PITCH, CAMH, FOV, FOCUS, APER, FEAR,
+    clockSeconds, battery, tape, LINES, CAPTIONS, SOUND, FAR, ROOM, SIDE };
+})();
+
+// ---------- rig.js : handheld camcorder operator (reusable as is) ----------
+// Sums handheld layers on top of the story keyframes: gait, breathing, tremor, hand wander, stabiliser
+// overcorrection, held breath. Stateful parts (breath phase, focus spring, auto exposure) are simulated
+// once into 120 Hz tables, so playback, scrubbing and export are pure functions of t.
+const Rig = (() => {
+  const { clamp, lerp, env, vnoise, hash, table, mulberry } = Util;
+  const STRIDE = .72, TAU = Math.PI * 2;
+  let S, dist, breathPh, focusD, expo = () => 1, agcGain = () => .032, stabs = [];
+  const nz = (t, f, s) => vnoise(t * f + s * 17.3) - .5;
+
+  function holdK(t) { const T = S.T, u = S.warp(t); return T.hush ? 1 - env(u, T.hush[0] - .12, T.hush[1] + .3, .1, .35) : 1; }
+  const speed = t => (dist(t + .12) - dist(t - .12)) / .24;
+
+  function init(story) {
+    S = story; const D = S.DUR;
+    dist = t => S.WALK(S.warp(t));
+    // breathing: ~0.27 Hz calm, faster with fear, frozen while holding breath (shared with audio)
+    breathPh = table(D, (t, dt, st) => { const p = (st || 0) + dt * TAU * (.27 + .28 * S.FEAR(S.warp(t))) * (.15 + .85 * holdK(t)); return { v: p, state: p }; });
+    // autofocus: 2nd-order spring in dioptres, zeta 0.42 for overshoot
+    focusD = table(D, (t, dt, st) => {
+      st = st || { x: 1 / S.FOCUS(0), v: 0 };
+      const tgt = 1 / S.FOCUS(S.warp(t)), w = TAU * 1.7, z = .42;
+      st.v += (w * w * (tgt - st.x) - 2 * z * w * st.v) * dt; st.x += st.v * dt; return { v: st.x, state: st };
+    });
+    // electronic stabiliser overcorrection: small impulses that decay in ~0.1 s
+    const R = mulberry(7); stabs = []; for (let t = 1.5; t < D; t += 2.5 + R() * 3.5) stabs.push([t, (R() - .5) * 2, (R() - .5) * 2]);
+  }
+  const stab = (t, k) => { let s = 0; for (const e of stabs) { const d = t - e[0]; if (d > 0 && d < .5) s += e[k] * Math.exp(-d / .1); } return s; };
+
+  function baseYaw(t) { const u = S.warp(t), s = dist(t); return S.P.heading(s) + S.YAWOFF(u); }
+
+  function pose(t) {
+    const u = S.warp(t), s = dist(t), a = S.P.at(s);
+    let yaw = baseYaw(t), pitch = S.PITCH(u), roll = 0;
+    const sp = speed(t), amp = clamp(sp / 1.25), ph = s / STRIDE * Math.PI, fear = S.FEAR(u), hold = holdK(t);
+    const br = Math.sin(breathPh(t)), f2 = fear * fear;
+    let y = 1.56 + S.CAMH(u);
+    y += .032 * amp * (Math.abs(Math.sin(ph)) - .6);                 // bob at twice the step rate
+    const sway = .018 * amp * Math.sin(ph);                            // sway at the step rate
+    // tremor (~7 Hz, follows fear squared) + hand wander (~0.3 Hz) + breathing
+    const trem = (k) => (nz(t, 7.1, k) + .5 * nz(t, 13.3, k + 9)) * f2;
+    pitch += (nz(t, 1.1, 1) * .016 + nz(t, .31, 11) * .02 + nz(t, 3.7, 2) * .005 * (1 + 2 * fear) + trem(3) * .006 + br * .006 + stab(t, 1) * .004) * hold;
+    yaw += (nz(t, .9, 4) * .018 + nz(t, .27, 12) * .022 + nz(t, 3.3, 5) * .005 * (1 + 2 * fear) + trem(5) * .006 + .011 * amp * Math.sin(ph) + stab(t, 2) * .004) * hold;
+    roll = (nz(t, .6, 6) * .035 + .014 * amp * Math.sin(ph) + trem(7) * .004) * hold + .012;
+    y += br * .006 * hold;
+    // looking down: camera comes lower and the arm reaches forward
+    const down = clamp(-pitch - .4, 0, 1), rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw), reach = down * .22;
+    const yawRate = (baseYaw(t + .03) - baseYaw(t - .03)) / .06;
+    return {
+      pos: [a.x + rx * sway * hold + fx * reach, y - down * .16, a.z + rz * sway * hold + fz * reach], yaw, pitch, roll,
+      fov: S.FOV(u), focus: 1 / Math.max(.02, focusD(t)), aper: S.APER(u), fear, speed: sp, phase: ph, hold, yawRate, breath: breathPh(t),
+    };
+  }
+
+  // ---------- auto exposure: estimate what the lens sees from the emitters, lagged spring, capped ----------
+  function buildExposure(world) {
+    const D = S.DUR, R = 30, n = Math.ceil(D * R) + 1, L = new Float32Array(n);
+    for (let i = 0; i < n; i++) L[i] = world.lensLuma(pose(i / R), i / R);
+    const sorted = Array.from(L).sort((a, b) => a - b), med = sorted[n >> 1] || 1;
+    const Lat = t => { const f = clamp(t * R, 0, n - 1.001), i = Math.floor(f); return lerp(L[i], L[i + 1], f - i); };
+    expo = table(D, (t, dt, st) => {
+      const tgt = Math.log(clamp(Math.pow(med / Math.max(1e-4, Lat(t)), .7), .55, Util.TUNE.maxExp));
+      st = st ?? tgt; const k = tgt > st ? .45 : .2;                  // brightens slowly, darkens faster
+      st += (tgt - st) * (1 - Math.exp(-dt / k)); return { v: Math.exp(st), state: st };
+    });
+  }
+  // AGC noise: pumps with exposure and fear
+  const gain = t => .032 + .07 * Math.max(0, Math.log2(expo(t))) + .012 * S.FEAR(S.warp(t));
+
+  return { init, pose, buildExposure, exposure: t => expo(t), gain, speed: t => speed(t), dist: t => dist(t), breath: t => breathPh(t), hold: holdK, STRIDE };
+})();
+
+// ---------- tex.js : small procedural canvas textures (replace contents per film; keep the helpers) ----------
+const Tex = (() => {
+  const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  // paper / fabric grain: many small translucent dots
+  function grain(x, w, h, n, a, R, cols) {
+    for (let i = 0; i < n; i++) { x.fillStyle = cols[Math.floor(R() * cols.length)]; x.globalAlpha = a * (.3 + R() * .7); const s = 1 + R() * 2; x.fillRect(R() * w, R() * h, s, s); }
+    x.globalAlpha = 1;
+  }
+  function wrap(x, text, maxW) {
+    const words = text.split(' '), lines = []; let cur = '';
+    for (const w of words) { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+    if (cur) lines.push(cur); return lines;
+  }
+  const SANS = "'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif";
+  // photocopied paper notice (portrait 0.34 x 0.46 m). All text passed in.
+  function notice({ header = '', title = [], items = [], footer = [], numbered = true, age = .6, seed = 5 } = {}) {
+    const W = 510, H = 690, c = cv(W, H), x = c.getContext('2d'), R = Util.mulberry(seed);
+    x.fillStyle = age > .5 ? '#ece4c6' : '#f2eedd'; x.fillRect(0, 0, W, H);
+    const eg = x.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, H * .75);
+    eg.addColorStop(0, 'rgba(0,0,0,0)'); eg.addColorStop(1, `rgba(150,120,50,${.18 + age * .2})`); x.fillStyle = eg; x.fillRect(0, 0, W, H);
+    grain(x, W, H, 9000, .06, R, ['#8c7c55', '#fff9e6']);
+    const ink = '#1d1b17', M = 40; x.fillStyle = ink; x.textBaseline = 'alphabetic';
+    x.font = `700 15px ${SANS}`; x.fillText(header, M, 59); x.fillRect(M, 68, W - 2 * M, 2.5);
+    x.font = `700 43px ${SANS}`; title.forEach((ln, i) => x.fillText(ln, M, 125 + i * 45));
+    let y = 125 + title.length * 45 + 20;
+    items.forEach((r, i) => {
+      const ind = numbered ? 35 : 0;
+      if (numbered) { x.font = `700 22px ${SANS}`; x.fillText(`${i + 1}.`, M, y); }
+      x.font = `600 22px ${SANS}`; for (const ln of wrap(x, r, W - 2 * M - ind)) { x.fillText(ln, M + ind, y); y += 28; } y += 15;
+    });
+    x.fillRect(M, H - 85, W - 2 * M, 1); x.font = `400 15px ${SANS}`; x.fillStyle = '#3a362d';
+    footer.forEach((ln, i) => x.fillText(ln, M, H - 59 + i * 20));
+    for (let i = 0; i < 45; i++) { x.fillStyle = `rgba(30,30,30,${R() * .25})`; x.fillRect(R() * W, R() * H, 1 + R() * 2, 1 + R()); }
+    x.fillStyle = 'rgba(0,0,0,.05)'; x.fillRect(0, H * .52, W, 2);
+    return c;
+  }
+  function upload(gl, canvas) {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  return { cv, grain, wrap, notice, upload };
+})();
+
+// ---------- world.js : scene content (rewrite per film) + emitter lighting system (keep) ----------
+// The placeholder is a plain office corridor with ceiling fixtures, a dark side opening and a room at the end.
+// Lighting: every light source is an emitter (or a cluster of small sources treated as one), max 512.
+// Emitter texture 512x3 RGBA32F (row 0 position + intensity, row 1 colour + softening eps, row 2 downlight
+// amount), re-uploaded every frame. A 2.5 m spatial grid keeps the 16 strongest emitters per cell, so each
+// fragment loops over 16 lights only. Falloff I/(d^2+eps) * exp(-d*k) keeps overlapping lights from
+// flattening everything; fog colour follows local light so dark areas stay dark.
+const World = (() => {
+  const { mulberry, hash, TUNE, clamp, seg } = Util;
+  // ================= CONTENT =================
+  const H = 2.7, WT = .16;
+  const M = { wall: 0, floor: 1, ceil: 2, fixture: 3, prop: 4, decal: 5, metal: 6 };
+  const BOXES = [];
+  const box = (x0, y0, z0, x1, y1, z1, m) => BOXES.push([Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1), Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1), m]);
+  const wz = (x, z0, z1) => box(x - WT / 2, 0, z0, x + WT / 2, H, z1, M.wall);   // wall along z at constant x
+  const wx = (z, x0, x1) => box(x0, 0, z - WT / 2, x1, H, z + WT / 2, M.wall);   // wall along x at constant z
+  wz(-1.2, 3.1, -26.2); wz(1.2, 3.1, -8.0); wz(1.2, -9.2, -21.0); wz(1.2, -25.0, -26.2);
+  wx(3.1, -1.2, 1.2); wx(-26.2, -1.2, 1.2);
+  wx(-8.0, 1.2, 3.4); wx(-9.2, 1.2, 3.4); wz(3.4, -8.0, -9.2);          // dark closet (no fixture = a deliberate dark gap)
+  wx(-21.0, 1.2, 7.0); wx(-25.0, 1.2, 7.0); wz(7.0, -21.0, -25.0);       // room at the end
+  box(-3, -.05, -28, 9, 0, 4, M.floor); box(-3, H, -28, 9, H + .05, 4, M.ceil);
+  box(4.2, 0, -24.8, 4.9, .55, -24.2, M.prop); box(4.3, .55, -24.75, 4.85, 1.0, -24.3, M.prop); box(5.9, 0, -21.9, 6.6, .48, -21.3, M.prop);
+  box(-1.12, .9, -14.3, -.8, 1.0, -12.9, M.metal);                        // a wall shelf for scale
+  // ceiling fixtures -> emitters. kind: ok | flicker (buzzing tube) | dead
+  const FIXTURES = [];
+  for (let k = 0; k < 11; k++) FIXTURES.push({ x: 0, z: .6 - 2.4 * k, kind: k === 8 ? 'flicker' : k === 6 ? 'dead' : 'ok' });
+  FIXTURES.push({ x: 3.2, z: -23, kind: 'ok' }, { x: 5.6, z: -23, kind: 'ok' });
+  const DECALS = [{ x: -1.2 + WT / 2 + .004, y: 1.45, z: -3.6, w: .34, h: .46, face: 'x+' }];   // a paper notice on the west wall
+  const noticeCanvas = () => Tex.notice({ header: 'BUILDING SERVICES', title: ['NOTICE'], items: ['This floor closes at midnight.', 'Lights are on a timer.', 'Report anything unusual to the front desk.'], footer: ['Thank you.'] });
+  // dark zones: the lighting has no shadows, so light reaches through walls. A zone [x0, z0, x1, z1, k]
+  // multiplies all light inside it by k (soft 0.35 m edge): use it for rooms that must stay dark. Max 8.
+  const ZONES = [[1.28, -9.12, 3.32, -8.08, .05]];
+  // optional per-film hook: extra(i, t) multiplies emitter i at time t (e.g. a light that dies after the tear)
+  const extra = null;
+
+  // ================= LIGHTING SYSTEM =================
+  const MAXE = 512, EM = [];   // {p:[x,y,z], base, col, eps, down, kind, ph}
+  { const R = mulberry(99); for (const f of FIXTURES) { const w = (R() - .5) * .14, g = R() * .06; EM.push({ p: [f.x, H - .08, f.z], base: f.kind === 'dead' ? 0 : .9 + R() * .25, col: [1 + w, 1 + g, .86 - w * .6], eps: .35, down: .7, kind: f.kind, ph: R() * 100 }); } }
+  if (EM.length > MAXE) throw new Error('too many emitters');
+  const emData = new Float32Array(MAXE * 3 * 4), I = new Float32Array(EM.length);
+  // global light level: the scripted flickers (shared formula with audio.js)
+  let FL = null;
+  function globalLight(t) {
+    const F = FL || (FL = (Story.T.flick || []).map(Story.unwarp)); let g = 1;
+    F.forEach((f, i) => {
+      if (t > f - .03 && t < f + .1 + i * .02) g = .025;
+      else if (t >= f + .1 + i * .02 && t < f + .2) g = Math.min(g, .55 + .45 * seg(t, f + .1, f + .2));
+    });
+    if (F.length) { const f = F[F.length - 1]; if (t > f + .2 && t < f + .9) g *= .9 + .1 * seg(t, f + .2, f + .9); }
+    return g;
+  }
+  function intensities(t) {
+    const g = globalLight(t);
+    EM.forEach((e, i) => {
+      let k = e.base;
+      if (e.kind === 'flicker') { const s = Math.floor(t * 24 + e.ph), h1 = hash(s * 1.7 + e.ph), h2 = hash(Math.floor(t * 1.3 + e.ph)); k *= h2 < .35 ? (h1 < .5 ? .15 : .9) : 1; }
+      if (extra) k *= extra(i, t);
+      I[i] = k * g;
+    });
+    return I;
+  }
+  // spatial grid: 16 strongest emitters per 2.5 m cell, ranked by I / (d^2 + 1.5)
+  let gx0 = 0, gz0 = 0, GN = [1, 1]; const CELL = 2.5;
+  function buildGrid() {
+    let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9;
+    for (const b of BOXES) { x0 = Math.min(x0, b[0]); z0 = Math.min(z0, b[2]); x1 = Math.max(x1, b[3]); z1 = Math.max(z1, b[5]); }
+    gx0 = x0; gz0 = z0; GN = [Math.ceil((x1 - x0) / CELL), Math.ceil((z1 - z0) / CELL)];
+    const d = new Float32Array(GN[0] * 4 * GN[1] * 4).fill(-1);
+    for (let j = 0; j < GN[1]; j++) for (let i = 0; i < GN[0]; i++) {
+      const cx = x0 + (i + .5) * CELL, cz = z0 + (j + .5) * CELL;
+      const r = EM.map((e, k) => [k, (e.base + .05) / ((e.p[0] - cx) ** 2 + (e.p[2] - cz) ** 2 + 1.5)]).sort((a, b) => b[1] - a[1]).slice(0, 16);
+      r.forEach(([k], n) => { d[((j * GN[0] + i) * 4 + (n >> 2)) * 4 + (n & 3)] = k; });
+    }
+    return d;
+  }
+  // what the lens sees (for auto exposure): emitters in the view cone + local light
+  function lensLuma(p, t) {
+    const Iv = intensities(t), fw = [-Math.sin(p.yaw) * Math.cos(p.pitch), Math.sin(p.pitch), -Math.cos(p.yaw) * Math.cos(p.pitch)];
+    const ch = Math.cos(p.fov * Math.PI / 180 * .5); let s = .02;
+    EM.forEach((e, i) => {
+      const d = [e.p[0] - p.pos[0], e.p[1] - p.pos[1], e.p[2] - p.pos[2]], L = Math.hypot(...d), c = (d[0] * fw[0] + d[1] * fw[1] + d[2] * fw[2]) / L;
+      const fall = Iv[i] / (L * L + 1) * Math.exp(-L * TUNE.falloffK);
+      s += fall * (.35 + 1.4 * clamp((c - ch * .8) / (1 - ch * .8)));
+    });
+    return s;
+  }
+
+  // ================= GL =================
+  const VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec2 aUv; layout(location=3) in vec2 aMat;
+uniform mat4 uVP; out vec3 vW; out vec3 vN; out vec2 vUv; flat out float vMat; flat out float vEmi;
+void main(){ vW = aPos; vN = aNrm; vUv = aUv; vMat = aMat.x; vEmi = aMat.y; gl_Position = uVP * vec4(aPos, 1.); }`;
+  const FS = `#version 300 es
+precision highp float; precision highp sampler2D;
+uniform sampler2D uEm, uGrid, uDecal; uniform vec3 uCam, uFogCol; uniform vec4 uGridInfo; uniform vec2 uGridN;
+uniform float uLight, uAmb, uFalloff, uFogD, uFogAvg, uEmis; uniform vec4 uZone[8]; uniform float uZoneK[8];
+in vec3 vW; in vec3 vN; in vec2 vUv; flat in float vMat; flat in float vEmi; out vec4 o;
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
+float fbm(vec2 p){ float a = .5, s = 0.; for (int k = 0; k < 4; k++){ s += a * vn(p); p = p * 2.03 + 17.1; a *= .5; } return s; }
+void lightAt(vec3 P, vec3 N, vec3 V, float shin, out vec3 dif, out vec3 spc, out vec3 amb){
+  dif = vec3(0); spc = vec3(0); amb = vec3(0);
+  ivec2 c = clamp(ivec2(floor((P.xz - uGridInfo.xy) / uGridInfo.z)), ivec2(0), ivec2(uGridN) - 1);
+  for (int k = 0; k < 4; k++) { vec4 ids = texelFetch(uGrid, ivec2(c.x * 4 + k, c.y), 0);
+    for (int j = 0; j < 4; j++) { float id = ids[j]; if (id < 0.) continue;
+      vec4 e = texelFetch(uEm, ivec2(int(id), 0), 0); if (e.w <= 0.) continue;
+      vec4 ec = texelFetch(uEm, ivec2(int(id), 1), 0); float dn = texelFetch(uEm, ivec2(int(id), 2), 0).x;
+      vec3 d = e.xyz - P; float d2 = dot(d, d), dd = sqrt(d2); vec3 l = d / dd;
+      float fall = e.w / (d2 + ec.w) * exp(-dd * uFalloff) * (1. - smoothstep(9., 12., dd));
+      float shape = mix(1., .3 + .7 * max(l.y, 0.), dn);
+      dif += ec.rgb * fall * shape * max(dot(N, l) * .62 + .38, 0.);
+      if (shin > 0.) { vec3 hv = normalize(l + V); spc += ec.rgb * fall * shape * pow(max(dot(N, hv), 0.), shin); }
+      amb += ec.rgb * e.w / (dot(d.xz, d.xz) + 3.);
+    } }
+  float zk = 1.;
+  for (int z = 0; z < 8; z++) { vec4 Z = uZone[z]; if (uZoneK[z] >= 1.) continue;
+    vec2 in2 = min(P.xz - Z.xy, Z.zw - P.xz); float inside = smoothstep(-.35, .0, min(in2.x, in2.y)); zk = min(zk, mix(1., uZoneK[z], inside)); }
+  dif *= uLight * zk; spc *= uLight * zk; amb *= uAmb * zk;
+}
+vec3 fogA(vec3 c, vec3 P, vec3 a){ float d = length(P - uCam), f = 1. - exp(-d * uFogD);
+  float k = clamp(dot(a, vec3(.333)) / uFogAvg, .08, 1.25); return mix(c, uFogCol * k, f); }
+void main(){
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N; vec3 V = normalize(uCam - vW);
+  int m = int(vMat + .5); vec3 alb = vec3(.5); float shin = 0., wet = 0.;
+  float u = abs(N.x) > .5 ? vW.z : vW.x;
+  if (m == 0) {          // painted plaster: stains, grime near the floor, dark baseboard
+    alb = vec3(.50, .49, .43) * (.92 + .12 * fbm(vec2(u * .7, vW.y * 1.2)));
+    alb *= mix(vec3(1.), vec3(.82, .78, .66), smoothstep(.55, .75, fbm(vec2(u * .4, vW.y * .8) + 4.)) * .7);
+    alb *= mix(.82, 1., smoothstep(.0, .5, vW.y));
+    if (vW.y < .1) alb = vec3(.13, .12, .11);
+  } else if (m == 1) {   // vinyl tile floor
+    vec2 g = vW.xz / .305, f = fract(g); float ch = mod(floor(g.x) + floor(g.y), 2.);
+    alb = mix(vec3(.30, .29, .26), vec3(.235, .23, .205), ch) * (.88 + .2 * fbm(vW.xz * 3.));
+    alb *= 1. - .35 * (1. - smoothstep(.0, .02, min(min(f.x, 1. - f.x), min(f.y, 1. - f.y))));
+    alb *= 1. - .25 * smoothstep(.6, .75, fbm(vW.xz * .6 + 9.));
+    shin = 40.; wet = .12 + .2 * smoothstep(.5, .7, fbm(vW.xz * .5));
+  } else if (m == 2) {   // acoustic ceiling tiles 0.6 x 1.2 m on a T-bar grid
+    vec2 f = fract(vec2(vW.x / .6, vW.z / 1.2) + .5); float e = min(min(f.x, 1. - f.x) * .6, min(f.y, 1. - f.y) * 1.2);
+    alb = vec3(.62, .6, .55) * (.9 + .15 * vn(vW.xz * 9.)) * (.95 + .08 * h21(floor(vec2(vW.x / .6, vW.z / 1.2) + .5)));
+    alb = mix(vec3(.7, .69, .65), alb, smoothstep(.008, .014, e));
+  } else if (m == 3) {   // fixture: emission from its own emitter
+    vec4 e = texelFetch(uEm, ivec2(int(vEmi), 0), 0); vec3 ec = texelFetch(uEm, ivec2(int(vEmi), 1), 0).rgb;
+    vec2 q = abs(vUv - .5) * 2.; float glow = 1. - smoothstep(.86, .92, max(q.x, q.y));
+    float tubes = .82 + .18 * (smoothstep(.5, .0, abs(q.x - .45)));
+    vec3 c = mix(vec3(.04) * (.2 + e.w), ec * e.w * uEmis * tubes, glow);
+    vec3 d, s, a; lightAt(vW - vec3(0, .05, 0), N, V, 0., d, s, a);
+    o = vec4(fogA(c, vW, a), 1.); return;
+  } else if (m == 4) {   // cardboard
+    alb = vec3(.36, .26, .15) * (.85 + .25 * fbm(vec2(u, vW.y) * 6.));
+    if (abs(fract(vW.y * 2.) - .5) < .06 && abs(N.y) < .5) alb = vec3(.55, .5, .38);
+  } else if (m == 5) {   // decal (paper notice)
+    alb = texture(uDecal, vUv).rgb; alb = pow(alb, vec3(2.2)) * .85;
+  } else if (m == 6) {   // painted metal
+    alb = vec3(.30, .30, .28); shin = 30.; wet = .08;
+  }
+  vec3 d, s, a; lightAt(vW + N * .02, N, V, shin, d, s, a);
+  vec3 c = alb * (d + a) + s * wet;
+  o = vec4(fogA(c, vW, a), 1.);
+}`;
+  let prog, vao, nVerts, emTex, gridTex, decalTex;
+  function geometry() {
+    const v = [];
+    const vert = (p, n, uv, m, e) => v.push(p[0], p[1], p[2], n[0], n[1], n[2], uv[0], uv[1], m, e);
+    const quad = (a, b, c, d, n, m, e = -1) => { vert(a, n, [0, 0], m, e); vert(b, n, [1, 0], m, e); vert(c, n, [1, 1], m, e); vert(a, n, [0, 0], m, e); vert(c, n, [1, 1], m, e); vert(d, n, [0, 1], m, e); };
+    for (const [x0, y0, z0, x1, y1, z1, m] of BOXES) {
+      quad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], [1, 0, 0], m); quad([x0, y0, z1], [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [-1, 0, 0], m);
+      quad([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], [0, 1, 0], m); quad([x0, y0, z1], [x1, y0, z1], [x1, y0, z0], [x0, y0, z0], [0, -1, 0], m);
+      quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], m); quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], m);
+    }
+    EM.forEach((e, i) => { const [x, , z] = e.p, y = H - .004; quad([x - .3, y, z + .6], [x + .3, y, z + .6], [x + .3, y, z - .6], [x - .3, y, z - .6], [0, -1, 0], M.fixture, i); });
+    for (const d of DECALS) { const x = d.x, w = d.w / 2, h = d.h / 2; if (d.face === 'x+') quad([x, d.y - h, d.z + w], [x, d.y - h, d.z - w], [x, d.y + h, d.z - w], [x, d.y + h, d.z + w], [1, 0, 0], M.decal); }
+    return new Float32Array(v);
+  }
+  function init(gl) {
+    prog = Util.program(gl, VS, FS);
+    const data = geometry(); nVerts = data.length / 10;
+    vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    [[0, 3, 0], [1, 3, 3], [2, 2, 6], [3, 2, 8]].forEach(([l, n, o]) => { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, 40, o * 4); });
+    gl.bindVertexArray(null);
+    emTex = Util.texture(gl, MAXE, 3, { internal: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT, filter: gl.NEAREST });
+    const g = buildGrid();
+    gridTex = Util.texture(gl, GN[0] * 4, GN[1], { internal: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT, filter: gl.NEAREST, data: g });
+    decalTex = Tex.upload(gl, noticeCanvas());
+  }
+  function draw(gl, VP, cam, t) {
+    const Iv = intensities(t);
+    EM.forEach((e, i) => {
+      const a = i * 4, b = (MAXE + i) * 4, c = (2 * MAXE + i) * 4;
+      emData[a] = e.p[0]; emData[a + 1] = e.p[1]; emData[a + 2] = e.p[2]; emData[a + 3] = Iv[i];
+      emData[b] = e.col[0]; emData[b + 1] = e.col[1]; emData[b + 2] = e.col[2]; emData[b + 3] = e.eps; emData[c] = e.down;
+    });
+    gl.bindTexture(gl.TEXTURE_2D, emTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, MAXE, 3, gl.RGBA, gl.FLOAT, emData);
+    gl.useProgram(prog.p); const U = prog.U;
+    gl.uniformMatrix4fv(U.uVP, false, VP); gl.uniform3fv(U.uCam, cam);
+    gl.uniform4f(U.uGridInfo, gx0, gz0, CELL, 0); gl.uniform2f(U.uGridN, GN[0], GN[1]);
+    gl.uniform1f(U.uLight, TUNE.light); gl.uniform1f(U.uAmb, TUNE.amb); gl.uniform1f(U.uFalloff, TUNE.falloffK);
+    gl.uniform1f(U.uFogD, TUNE.fogD); gl.uniform1f(U.uFogAvg, TUNE.fogAvg); gl.uniform3fv(U.uFogCol, TUNE.fogCol); gl.uniform1f(U.uEmis, TUNE.emis);
+    const zb = new Float32Array(32), zk = new Float32Array(8).fill(1); ZONES.slice(0, 8).forEach((z, i) => { zb.set(z.slice(0, 4), i * 4); zk[i] = z[4]; });
+    gl.uniform4fv(U.uZone, zb); gl.uniform1fv(U.uZoneK, zk);
+    [[emTex, 'uEm'], [gridTex, 'uGrid'], [decalTex, 'uDecal']].forEach(([tx, n], k) => { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, tx); gl.uniform1i(U[n], k); });
+    gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, nVerts); gl.bindVertexArray(null);
+  }
+  return { init, draw, intensities, globalLight, lensLuma, EM, H, BOXES };
+})();
+
+// ---------- post.js : camera optics (reusable as is, retune with TUNE) ----------
+// Scene (linear HDR) -> bloom (bright pass, 4 downsamples, 3 upsamples) -> camera pass:
+// depth-of-field from the focus spring, motion blur on fast pans, cheap SSAO, bloom add, exposure,
+// soft shoulder, gamma. Output is display-referred, ready for the VHS pass.
+const Post = (() => {
+  const { program, target, quad, FSQ_VS, TUNE } = Util;
+  const H = `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o;`;
+  const BRIGHT = H + `
+uniform sampler2D uSrc; uniform float uExpo, uThr; uniform vec2 uTx;
+void main(){ vec3 c = vec3(0.); for (int i = 0; i < 4; i++) { vec2 d = vec2(i & 1, i >> 1) - .5; c += texture(uSrc, vUv + d * uTx).rgb; }
+  c = c * .25 * uExpo; o = vec4(max(c - uThr, 0.), 1.); }`;
+  const DOWN = H + `
+uniform sampler2D uSrc; uniform vec2 uTx;
+void main(){ vec3 c = texture(uSrc, vUv).rgb * .5;
+  c += (texture(uSrc, vUv + uTx * vec2(-1, -1)).rgb + texture(uSrc, vUv + uTx * vec2(1, -1)).rgb + texture(uSrc, vUv + uTx * vec2(-1, 1)).rgb + texture(uSrc, vUv + uTx * vec2(1, 1)).rgb) * .125;
+  o = vec4(c, 1.); }`;
+  const UP = H + `
+uniform sampler2D uSrc, uAdd; uniform vec2 uTx;
+void main(){ vec3 c = vec3(0.); float w = 0.;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { float k = (x == 0 ? 2. : 1.) * (y == 0 ? 2. : 1.); c += texture(uSrc, vUv + vec2(x, y) * uTx).rgb * k; w += k; }
+  o = vec4(c / w + texture(uAdd, vUv).rgb, 1.); }`;
+  const CAMERA = H + `
+uniform sampler2D uScene, uDepth, uBloom; uniform vec2 uRes;
+uniform float uExpo, uFocus, uCocK, uMaxCoc, uNear, uFar, uMB, uAo, uBloomAmt;
+float lin(float z){ float zn = z * 2. - 1.; return 2. * uNear * uFar / (uFar + uNear - zn * (uFar - uNear)); }
+float coc(float d){ return clamp(abs(1. / d - 1. / uFocus) * uCocK, 0., uMaxCoc); }
+void main(){
+  float d = lin(texture(uDepth, vUv).r), cc = coc(d);
+  vec3 acc = vec3(0.); float ws = 0.;
+  for (int i = 0; i < 16; i++) {
+    float fi = float(i), r = sqrt((fi + .5) / 16.), a = fi * 2.39996;
+    vec2 off = vec2(cos(a), sin(a)) * r * max(cc, .001) / uRes;
+    off.x += uMB * ((fi + .5) / 16. - .5);
+    vec2 q = vUv + off; float d2 = lin(texture(uDepth, q).r), c2 = coc(d2);
+    float w = d2 < d - .05 ? clamp(c2 - r * cc + 1., 0., 1.) : 1.;   // sharp foreground doesn't smear into blurry background
+    acc += texture(uScene, q).rgb * w; ws += w;
+  }
+  vec3 c = acc / max(ws, 1e-3);
+  float occ = 0.;
+  for (int k = 0; k < 8; k++) { float a = float(k) * .785 + .4, rr = (3. + float(k) * 1.7) * clamp(2.2 / d, .4, 3.);
+    float ds = lin(texture(uDepth, vUv + vec2(cos(a), sin(a)) * rr / uRes).r), dz = d - ds;
+    occ += smoothstep(.03, .25, dz) * (1. - smoothstep(.35, .9, dz)); }
+  c *= 1. - uAo * occ / 8.;
+  c = c * uExpo + texture(uBloom, vUv).rgb * uBloomAmt;
+  c = mix(c, .72 + .28 * (1. - exp(-(c - .72) / .28)), step(.72, c));   // soft shoulder
+  o = vec4(pow(max(c, 0.), vec3(1. / 2.2)), 1.);
+}`;
+  let P = null; const sets = {};
+  function init(gl) { P = { bright: program(gl, FSQ_VS, BRIGHT), down: program(gl, FSQ_VS, DOWN), up: program(gl, FSQ_VS, UP), cam: program(gl, FSQ_VS, CAMERA) }; }
+  // one set of targets per scene width (720 for 4:3, 1024 for the fill 16:9 view), built on first use
+  function targets(gl, w, h) {
+    const k = w + 'x' + h; if (sets[k]) return sets[k];
+    const s = { scene: target(gl, w, h, { depth: true }), out: target(gl, w, h, { float: false }), down: [], up: [] };
+    let bw = w >> 1, bh = h >> 1; s.bright = target(gl, bw, bh);
+    for (let i = 0; i < 4; i++) { bw = Math.max(2, bw >> 1); bh = Math.max(2, bh >> 1); s.down.push(target(gl, bw, bh)); }
+    for (let i = 0; i < 3; i++) s.up.push(target(gl, s.down[i].w, s.down[i].h));
+    return (sets[k] = s);
+  }
+  function pass(gl, prg, dst, tex, uni) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb || null); gl.viewport(0, 0, dst.w, dst.h); gl.useProgram(prg.p);
+    Object.entries(tex).forEach(([n, t], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(prg.U[n], i); });
+    for (const [n, v] of Object.entries(uni)) { if (prg.U[n] == null) continue; Array.isArray(v) ? gl['uniform' + v.length + 'f'](prg.U[n], ...v) : gl.uniform1f(prg.U[n], v); }
+    quad(gl);
+  }
+  // run bloom + camera pass on s.scene, result in s.out
+  function run(gl, s, o) {
+    pass(gl, P.bright, s.bright, { uSrc: s.scene.color }, { uExpo: o.expo, uThr: TUNE.bloomThr, uTx: [1 / s.scene.w, 1 / s.scene.h] });
+    let src = s.bright; for (const d of s.down) { pass(gl, P.down, d, { uSrc: src.color }, { uTx: [1 / src.w, 1 / src.h] }); src = d; }
+    let u = s.down[3]; for (let i = 2; i >= 0; i--) { pass(gl, P.up, s.up[i], { uSrc: u.color, uAdd: s.down[i].color }, { uTx: [1 / u.w, 1 / u.h] }); u = s.up[i]; }
+    const cocK = 5.5 * (50 / o.fov) ** 2 * o.aper * s.scene.h / 540;
+    pass(gl, P.cam, s.out, { uScene: s.scene.color, uDepth: s.scene.depth, uBloom: s.up[0].color }, {
+      uRes: [s.scene.w, s.scene.h], uExpo: o.expo, uFocus: o.focus, uCocK: cocK, uMaxCoc: TUNE.maxCoc, uNear: o.near, uFar: o.far,
+      uMB: o.mb, uAo: TUNE.aoAmt, uBloomAmt: TUNE.bloom,
+    });
+  }
+  return { init, targets, run, pass };
+})();
+
+// ---------- vhs.js : the camcorder tape pass (reusable as is, tune strength with TUNE) ----------
+// Based on the Night Shift Orientation shader, ported to WebGL 2, with the playbook's additions:
+// concealed dropouts, rolling-shutter skew on pans, start/end snow, the fill 16:9 view (uPad), and a
+// caption layer composited untouched at the very end.
+// Order: 4:3 frame -> per-line time-base jitter / head-switching band / tracking tear -> lens barrel
+// (picture only; the OSD is an electronic overlay and skips the lens) -> luma bandwidth + edge-enhancement
+// ringing -> chroma smeared wide and lagging right -> highlight comet tails -> white balance / AGC noise ->
+// dropouts -> lifted blacks + soft clip -> vignette -> captions. No CRT raster by default: this is a
+// recorded tape, not a tube (TUNE.scan adds a faint line structure if you want it).
+const VHS = (() => {
+  const FS = `#version 300 es
+precision highp float;
+uniform sampler2D tScene, tOSD, tCap; uniform vec2 res, src; uniform vec3 tint;
+uniform float frame, gain, sharp, lumaW, chromaW, chromaShift, sat, jitter, track, roll, barrel, vig, black, dropout, off, snow, smear;
+uniform float uPad, overscan, osdOn, capOn, skew, scan;
+in vec2 vUv; out vec4 o;
+float h1(float n){ return fract(sin(n * 127.1 + 311.7) * 43758.5453); }
+float h2(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float vn1(float x){ float i = floor(x), f = fract(x); f = f*f*(3.-2.*f); return mix(h1(i), h1(i+1.), f); }
+const mat3 toYIQ = mat3(.299, .596, .211, .587, -.274, -.523, .114, -.322, .312);
+const mat3 toRGB = mat3(1., 1., 1., .956, -.272, -1.106, .621, -.647, 1.703);
+vec2 lens(vec2 q){ vec2 p = q - .5; vec2 pa = p * vec2(1.333, 1.); float r2 = dot(pa, pa); p *= 1. + barrel * r2; p *= 1. - barrel * .3; return p + .5; }
+// signal = picture (through the lens) + OSD (electronic, no lens, no vignette)
+vec3 sig(vec2 q){
+  vec2 ql = lens(q);
+  vec3 c = texture(tScene, vec2((ql.x + uPad) / (1. + 2. * uPad), ql.y)).rgb;
+  if (ql.x < -uPad || ql.x > 1. + uPad || ql.y < 0. || ql.y > 1.) c = vec3(0.);
+  if (osdOn > 0. && q.x >= 0. && q.x <= 1.) {
+    vec4 a = texture(tOSD, q), b = texture(tOSD, q - vec2(.5 / src.x, 0.));   // slight two-tap smear
+    vec4 s = (a + b) * .5; c = mix(c, s.rgb / max(s.a, 1e-3), s.a);
+  }
+  return c;
+}
+void main(){
+  vec2 fc = gl_FragCoord.xy; float bw = res.y * 4. / 3.;
+  vec2 uv0 = vec2((fc.x - res.x * .5) / bw, (fc.y - res.y * .5) / res.y) / (1. + overscan) + .5;
+  if (uv0.x < -uPad || uv0.x > 1. + uPad) { o = vec4(0., 0., 0., 1.); return; }
+  vec2 uv = uv0;
+  float F = floor(frame);
+  uv.y = fract(uv.y + roll);                        // vertical roll (roll-in, tear)
+  float line = floor((1. - uv.y) * src.y);          // tape line, top to bottom
+  float dx = 1. / src.x;
+  // time-base error: per-line horizontal jitter + slow wobble (period ~80 lines, never italicises text)
+  float off1 = (h1(line * .37 + F * 1.13) - .5) * jitter * dx;
+  off1 += (vn1(line * .012 + F * .7) - .5) * jitter * .8 * dx;
+  off1 += skew * (line / src.y - .5);               // rolling shutter on fast pans
+  // head switching: the bottom lines shear sideways with noise
+  float hsw = smoothstep(src.y - 10., src.y - 3., line);
+  off1 += hsw * (.012 + .025 * h1(line + F * 3.1));
+  // tracking tear: a rolling noise band with big line offsets inside it
+  float band = 0.;
+  if (track > 0.) {
+    float by = fract(h1(F * .31) * .6 + F * .037);
+    band = smoothstep(.09 * track + .02, 0., abs(uv.y - by));
+    off1 += (h1(line * .13 + F * 7.1) - .5) * .05 * track * (1. + band * 4.);
+    off1 += band * track * .06 * sin(F * 2.3 + line * .02);
+    uv.y += (h1(F * 1.9) - .5) * .02 * track;
+  }
+  vec2 q = vec2(uv.x + off1, uv.y);
+  // dropouts: most are concealed by the deck (repeat a segment from 3 lines above, nudged sideways);
+  // the rest are broken sparkles with a tail to the right. Each flake lives 2 frames.
+  float spark = 0.;
+  if (dropout > 0.) for (int k = 0; k < 6; k++) {
+    float fk = float(k), ff = floor((F + fk) * .5);
+    if (h1(ff * 3.7 + fk * 11.3) > .22 * dropout) continue;
+    float dl = floor(h1(ff * 1.3 + fk * 5.1) * src.y), dxs = h1(ff * 2.9 + fk * 7.7) - .05, dlen = .015 + .09 * h1(ff * 4.1 + fk);
+    bool conceal = h1(ff * 9.1 + fk * 3.3) < .72; float tall = conceal ? 1. : 1. + floor(h1(ff * 6.7 + fk) * 3.);
+    if (line >= dl && line < dl + tall && uv.x > dxs && uv.x < dxs + dlen) {
+      if (conceal) q += vec2((h1(ff + fk * 2.) - .5) * .01, 3. / src.y);
+      else { float u = (uv.x - dxs) / dlen; spark = max(spark, exp(-u * 3.5) * (.5 + .5 * h2(vec2(floor(uv.x * src.x), line + F)))); }
+    }
+  }
+  // luma: narrow + wide gaussian -> sharpening ring (the camcorder's edge-enhancement halo)
+  float Y = 0., Yw = 0., ws = 0., wws = 0.;
+  for (int i = -3; i <= 3; i++) { float fi = float(i); float w = exp(-fi * fi / (2. * lumaW * lumaW)); Y += dot(sig(q + vec2(fi * dx, 0.)), vec3(.299, .587, .114)) * w; ws += w; }
+  for (int i = -4; i <= 4; i++) { float fi = float(i) * 1.8; float w = exp(-fi * fi / 24.); Yw += dot(sig(q + vec2(fi * dx, 0.)), vec3(.299, .587, .114)) * w; wws += w; }
+  Y /= ws; Yw /= wws; Y = Y + sharp * (Y - Yw);
+  // chroma: wide average, lagging to the right
+  vec2 IQ = vec2(0.); float cw = 0.;
+  for (int i = -5; i <= 5; i++) { float fi = float(i) * chromaW * .4; float w = exp(-float(i * i) / 12.); IQ += (toYIQ * sig(q + vec2((fi - chromaShift) * dx, 0.))).yz * w; cw += w; }
+  IQ /= cw;
+  // highlights trail to the right (comet tails on lamps)
+  float tail = 0.;
+  for (int i = 1; i <= 6; i++) { float yy = dot(sig(q - vec2(float(i) * 2.5 * dx, 0.)), vec3(.299, .587, .114)); tail += max(yy - .82, 0.) * (1. - float(i) / 7.); }
+  Y += tail * smear;
+  // AGC noise: horizontally stretched grain, strongest in the darks, seeded at tape rate
+  float px = floor(uv.x * src.x / 1.5);
+  float nY = (h2(vec2(px, line) + F * 7.3) - .5) + (h2(vec2(floor(px / 3.), line) + F * 3.1) - .5) * .6;
+  Y += nY * gain * (1.3 - Y * .8);
+  IQ += (vec2(vn1(uv.x * 38. + line * 3.1 + F * 17.), vn1(uv.x * 31. + line * 1.7 + F * 11.)) - .5) * gain * .5;
+  IQ *= sat;
+  vec3 c = toRGB * vec3(Y, IQ);
+  if (track > 0.) { float sn = h2(vec2(floor(uv.x * 480.), line) + F * 31.); c = mix(c, vec3(sn), band * .8 * track); c = mix(c, vec3(dot(c, vec3(.33))), band * track); }
+  if (hsw > 0.) c = mix(c, vec3(h2(vec2(px, line + F))), hsw * .35);
+  c += spark * .85;
+  // white balance / black lift / soft highlight clip
+  c *= tint;
+  c = c * (1. - black) + black;
+  c = mix(c, (1. - exp(-c * 1.6)) / (1. - exp(-1.6)), smoothstep(.55, 1.2, c));
+  if (scan > 0.) c *= 1. - scan * .5 * (.5 + .5 * cos(((1. - uv.y) * src.y) * 6.2832));
+  vec2 dv = (uv - .5) * vec2(1.25, 1.); c *= 1. - vig * smoothstep(.2, .85, length(dv));
+  // snow (no signal) and black
+  if (snow > 0.) { float s = h2(vec2(floor(uv0.x * 360.), floor(uv0.y * 270.)) + F * 13.1) * .8 + .1 * vn1(uv0.y * 40. + F); c = mix(c, vec3(s), snow); }
+  c = mix(c, vec3(0.), off);
+  // captions / end card: composited untouched, inside the 4:3 frame
+  if (uv0.x >= 0. && uv0.x <= 1. && uv0.y >= 0. && uv0.y <= 1.) { vec4 k = texture(tCap, uv0); c = mix(c, k.rgb / max(k.a, 1e-3), k.a * (capOn > 0. ? 1. : 0.)); }
+  o = vec4(clamp(c, 0., 1.), 1.);
+}`;
+  let P = null;
+  function init(gl) { P = Util.program(gl, Util.FSQ_VS, FS); }
+  // u: uniform values; tex: {tScene, tOSD, tCap}; target: {fb, w, h} (fb null = canvas)
+  function run(gl, tex, u, dst) { Post.pass(gl, P, dst, tex, u); }
+  return { init, run };
+})();
+
+// ---------- osd.js : the camera display (locked look: never edit per film) ----------
+// Lettering from the Night Shift Orientation display: a 5x7 character generator with square pixels and a
+// dark 1-pixel rim, drawn on a 720x540 "tape space" canvas that the VHS pass mixes into the signal (so it
+// picks up the line jitter, tracking tears and chroma bleed but not the lens barrel or vignette).
+// Layout: REC + red tally top left, battery top right, time above date bottom right, title card typed
+// out character by character. Per-film values (date, clock style, start time, title words, battery)
+// come from story.js, so this file never changes between films.
+const OSD = (() => {
+  const G = {
+    '0': '01110 10001 10011 10101 11001 10001 01110', '1': '00100 01100 00100 00100 00100 00100 01110',
+    '2': '01110 10001 00001 00010 00100 01000 11111', '3': '11111 00010 00100 00010 00001 10001 01110',
+    '4': '00010 00110 01010 10010 11111 00010 00010', '5': '11111 10000 11110 00001 00001 10001 01110',
+    '6': '00110 01000 10000 11110 10001 10001 01110', '7': '11111 00001 00010 00100 01000 01000 01000',
+    '8': '01110 10001 10001 01110 10001 10001 01110', '9': '01110 10001 10001 01111 00001 00010 01100',
+    'A': '01110 10001 10001 11111 10001 10001 10001', 'B': '11110 10001 10001 11110 10001 10001 11110',
+    'C': '01110 10001 10000 10000 10000 10001 01110', 'D': '11100 10010 10001 10001 10001 10010 11100',
+    'E': '11111 10000 10000 11110 10000 10000 11111', 'F': '11111 10000 10000 11110 10000 10000 10000',
+    'G': '01110 10001 10000 10111 10001 10001 01111', 'H': '10001 10001 10001 11111 10001 10001 10001',
+    'I': '01110 00100 00100 00100 00100 00100 01110', 'J': '00111 00010 00010 00010 00010 10010 01100',
+    'K': '10001 10010 10100 11000 10100 10010 10001', 'L': '10000 10000 10000 10000 10000 10000 11111',
+    'M': '10001 11011 10101 10101 10001 10001 10001', 'N': '10001 10001 11001 10101 10011 10001 10001',
+    'O': '01110 10001 10001 10001 10001 10001 01110', 'P': '11110 10001 10001 11110 10000 10000 10000',
+    'Q': '01110 10001 10001 10001 10101 10010 01101', 'R': '11110 10001 10001 11110 10100 10010 10001',
+    'S': '01111 10000 10000 01110 00001 00001 11110', 'T': '11111 00100 00100 00100 00100 00100 00100',
+    'U': '10001 10001 10001 10001 10001 10001 01110', 'V': '10001 10001 10001 10001 10001 01010 00100',
+    'W': '10001 10001 10001 10101 10101 10101 01010', 'X': '10001 10001 01010 00100 01010 10001 10001',
+    'Y': '10001 10001 10001 01010 00100 00100 00100', 'Z': '11111 00001 00010 00100 01000 10000 11111',
+    ':': '00000 01100 01100 00000 01100 01100 00000', '.': '00000 00000 00000 00000 00000 01100 01100',
+    '-': '00000 00000 00000 11111 00000 00000 00000', '/': '00001 00010 00010 00100 01000 01000 10000',
+    '×': '00000 10001 01010 00100 01010 10001 00000', ' ': '00000 00000 00000 00000 00000 00000 00000',
+    '(': '00010 00100 01000 01000 01000 00100 00010', ')': '01000 00100 00010 00010 00010 00100 01000',
+  };
+  const ROWS = {}; for (const k in G) ROWS[k] = G[k].split(' ');
+  const INK = '#f4f4ee', RIM = 'rgba(0,0,0,.85)';
+  // s = size of one generator pixel; rim = a dark 1-pixel edge (typical of camcorder character generators)
+  function text(x, str, px, py, s, col = INK, outline = true) {
+    const draw = (ox, oy, c) => {
+      x.fillStyle = c; let cx = px;
+      for (const ch of str.toUpperCase()) { const g = ROWS[ch] || ROWS[' ']; for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (g[r][q] === '1') x.fillRect(cx + q * s + ox, py + r * s + oy, s, s); cx += 6 * s; }
+    };
+    if (outline) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) draw(ox * Math.max(1, s * .5), oy * Math.max(1, s * .5), RIM);
+    draw(0, 0, col);
+    return str.length * 6 * s;
+  }
+  const width = (str, s) => str.length * 6 * s - s;
+  function fmtTime(sec, style) {
+    let h = Math.floor(sec / 3600) % 24; const m = Math.floor(sec / 60) % 60, pm = h >= 12; h = h % 12 || 12;
+    const hm = `${h}:${String(m).padStart(2, '0')}`, ap = pm ? 'PM' : 'AM';
+    return style === 'ampm-last' ? `${hm} ${ap}` : `${ap} ${hm}`;
+  }
+  const W = 720, H = 540, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  let lastKey = '';
+  // returns true when the visible state changed (the caller re-uploads the texture only then)
+  function draw(t) {
+    const S = Story, u = S.warp(t), tp = S.tape(t);
+    const bars = S.battery(t), blinkOff = bars <= 1 && Math.floor(t * 2) % 2 === 1;
+    const titleN = S.TITLE && u >= S.T.title[0] && u < S.T.title[1] ? Math.floor((u - S.T.title[0]) * 16) : -1;
+    const clock = fmtTime(S.clockSeconds(t), S.CLOCK_STYLE);
+    const key = [tp.osd, tp.rec, titleN, bars, blinkOff, clock].join('|');
+    if (key === lastKey) return false;
+    lastKey = key; x.clearRect(0, 0, W, H);
+    if (!tp.osd) return true;
+    const s = 3;
+    if (tp.rec) {
+      x.fillStyle = RIM; x.beginPath(); x.arc(58, 55, 10, 0, 7); x.fill();
+      x.fillStyle = '#e8261c'; x.beginPath(); x.arc(58, 55, 8.5, 0, 7); x.fill();
+      text(x, 'REC', 76, 45, s);
+    }
+    if (!blinkOff) {   // battery: terminal nub on the right, one cell per bar
+      const bx = W - 118, by = 44;
+      x.fillStyle = RIM; x.fillRect(bx - 2, by - 2, 58, 26); x.fillRect(bx + 54, by + 5, 8, 12);
+      x.fillStyle = INK; x.fillRect(bx, by, 54, 22); x.fillRect(bx + 54, by + 7, 5, 8);
+      x.fillStyle = '#111'; x.fillRect(bx + 3, by + 3, 48, 16);
+      x.fillStyle = INK; for (let k = 0; k < bars; k++) x.fillRect(bx + 5 + k * 16, by + 5, 12, 12);
+    }
+    text(x, clock, W - 50 - width(clock, s), H - 92, s);
+    text(x, S.DATE, W - 50 - width(S.DATE, s), H - 58, s);
+    if (titleN >= 0) {
+      const ts = 6, L = S.TITLE; let k = 0;
+      L.forEach((ln, i) => {
+        const vis = ln.slice(0, Math.max(0, Math.min(ln.length, titleN - k))); k += ln.length;
+        text(x, vis, (W - width(ln, ts)) / 2, H * .36 + i * 66 - (L.length - 1) * 33, ts, '#fbfbf2');
+      });
+    }
+    return true;
+  }
+  return { draw, canvas: cv, text, width, fmtTime, reset: () => { lastKey = ''; } };
+})();
+
+// ---------- subs.js : CEA-608 style captions + end card (reusable as is) ----------
+// Monospaced white text in a solid black box per row, at most 32 characters a row, on a 1440x1080 canvas
+// that maps onto the 4:3 picture. The bottom of the last row sits at y 896, clear of the time and date.
+// Caption content comes from story.js (CAPTIONS); hold times come from the real voice durations.
+const Subs = (() => {
+  const W = 1440, H = 1080, COLS = 32, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const FONT = "'IBM Plex Mono', 'Courier New', monospace";
+  let CAPS = [], lastKey = '';
+  function wrap(s) { const out = []; let cur = ''; for (const w of s.split(' ')) { const t = cur ? cur + ' ' + w : w; if (t.length > COLS && cur) { out.push(cur); cur = w; } else cur = t; } if (cur) out.push(cur); return out; }
+  // dur(id) = spoken length of a line in seconds
+  function build(dur) {
+    // CAPTIONS are written in original time (like every story key) and mapped to film time here
+    const S = Story, L = Object.fromEntries(S.LINES.map(l => [l.id, l.t]));
+    const end = (id, pad = .6, min = 1.8) => L[id] + Math.max(min, (dur(id) || 2) + pad);   // hold >= max(1.8 s, speech + 0.6 s)
+    const C = S.CAPTIONS({ L, end, T: S.T }).map(c => ({ ...c, t0: S.unwarp(c.t0), t1: S.unwarp(c.t1) }));
+    C.sort((a, b) => a.t0 - b.t0);
+    for (let k = 0; k < C.length - 1; k++) C[k].t1 = Math.min(C[k].t1, C[k + 1].t0);
+    C.forEach(c => c.rows = wrap(c.text));
+    CAPS = C; lastKey = ''; return C;
+  }
+  function endCard(a) {
+    x.globalAlpha = a; x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+    const [l1, l2] = Story.END_CARD, s1 = 9, s2 = 4;
+    if (l1) OSD.text(x, l1, (W - OSD.width(l1, s1)) / 2, 430, s1, '#ecece4', false);
+    if (l2) OSD.text(x, l2, (W - OSD.width(l2, s2)) / 2, 560, s2, '#b9b39a', false);
+    x.globalAlpha = 1;
+  }
+  // returns true if the canvas changed
+  function draw(t, showCaps) {
+    const S = Story, u = S.warp(t), ec = u >= S.T.endCard[0] ? Util.ss(Util.seg(u, S.T.endCard[0], S.T.endCard[0] + .6)) : 0;
+    const c = showCaps ? CAPS.find(c => t >= c.t0 && t < c.t1) : null;
+    const key = (c ? c.text : '') + '|' + ec.toFixed(3);
+    if (key === lastKey) return false;
+    lastKey = key; x.clearRect(0, 0, W, H);
+    if (ec > 0) endCard(ec);
+    if (c && ec < 1) {
+      const fs = 42, cw = fs * .6, rh = 54, cx = W / 2, n = c.rows.length, yb = 896 - rh / 2;
+      x.font = `600 ${fs}px ${FONT}`; x.textBaseline = 'middle';
+      c.rows.forEach((r, i) => {
+        const y = yb - (n - 1 - i) * rh, w = (r.length + 2) * cw, x0 = Math.round(cx - w / 2);
+        x.fillStyle = '#000'; x.fillRect(x0, y - rh / 2, w, rh); x.fillStyle = '#f2f2f2'; x.save();
+        if (c.it && !r.startsWith('[')) { x.translate(x0 + cw, y); x.transform(1, 0, -.2, 1, 0, 0); x.fillText(r, 0, 2); }
+        else x.fillText(r, x0 + cw, y + 2);
+        x.restore();
+      });
+    }
+    return true;
+  }
+  return { build, draw, canvas: cv, caps: () => CAPS, reset: () => { lastKey = ''; } };
+})();
+
+// ---------- audio.js : offline DSP soundtrack in three stems (keep the engine, rewrite the events) ----------
+// Everything is "recorded on the tape": room tone (chosen by the story: fluorescent hum only when it belongs), tape hiss, footsteps, cloth, breath, camera mechanics,
+// a PA ceiling speaker, the operator whispering, in-world music through a wall, a low drone, the tracking
+// tear and the one second of digital silence. Timing comes from story.js and rig.js (the same breath
+// table, walk and focus spring the camera uses), so picture and sound cannot drift.
+// Stems: music (in-world music + drone), fx (bed + foley + camera), voice (PA + operator).
+// Voice: load real recordings (<line id>.wav) to replace the placeholder murmur.
+const Snd = (() => {
+  const SR = 48000, { clamp, lerp, seg, ss, mulberry } = Util;
+  // ======================= CONFIG (per film) =======================
+  const CFG = {
+    zoomGain: 1,            // 1 = the zoom servo at the level it had in Environmental Verification
+    stepGain: .16,          // footsteps start low (the last film's were too loud): sit under the voice
+    breathGain: .05, rustleGain: .07, humGain: 1.3, airGain: .06, hissGain: .006,
+    music: true, musicGain: .14, droneGain: .09,
+    paFar: .4, paGain: .62, meGain: .52,
+    target: -14,            // LUFS of the full mix
+  };
+  // custom event generators: { type: (e, add) => {...} } for Story.SOUND.extra
+  const CUSTOM = {};
+
+  // ======================= DSP =======================
+  let R = mulberry(41);
+  const gauss = n => { const a = new Float32Array(n); for (let i = 0; i < n; i += 2) { const u = Math.max(1e-9, R()), v = R(), m = Math.sqrt(-2 * Math.log(u)); a[i] = m * Math.cos(6.2832 * v); if (i + 1 < n) a[i + 1] = m * Math.sin(6.2832 * v); } return a; };
+  const sec = d => Math.round(d * SR);
+  function biquad(x, type, f, Q = .7071, db = 0) {
+    f = Math.min(f, SR * .45); const w = 2 * Math.PI * f / SR, c = Math.cos(w), s = Math.sin(w), al = s / (2 * Q), A = Math.pow(10, db / 40);
+    let b0, b1, b2, a0, a1, a2;
+    if (type === 'lp') { b0 = (1 - c) / 2; b1 = 1 - c; b2 = b0; a0 = 1 + al; a1 = -2 * c; a2 = 1 - al; }
+    else if (type === 'hp') { b0 = (1 + c) / 2; b1 = -(1 + c); b2 = b0; a0 = 1 + al; a1 = -2 * c; a2 = 1 - al; }
+    else if (type === 'bp') { b0 = al; b1 = 0; b2 = -al; a0 = 1 + al; a1 = -2 * c; a2 = 1 - al; }
+    else if (type === 'peak') { b0 = 1 + al * A; b1 = -2 * c; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * c; a2 = 1 - al / A; }
+    else if (type === 'lowshelf') { const sA = 2 * Math.sqrt(A) * al; b0 = A * ((A + 1) - (A - 1) * c + sA); b1 = 2 * A * ((A - 1) - (A + 1) * c); b2 = A * ((A + 1) - (A - 1) * c - sA); a0 = (A + 1) + (A - 1) * c + sA; a1 = -2 * ((A - 1) + (A + 1) * c); a2 = (A + 1) + (A - 1) * c - sA; }
+    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+    const y = new Float32Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < x.length; i++) { const v = x[i], o = b0 * v + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = v; y2 = y1; y1 = o; y[i] = o; }
+    return y;
+  }
+  const lp = (x, f, o = 1) => { for (let k = 0; k < o; k++) x = biquad(x, 'lp', f); return x; };
+  const hp = (x, f, o = 1) => { for (let k = 0; k < o; k++) x = biquad(x, 'hp', f); return x; };
+  const bp = (x, f0, f1, o = 1) => { for (let k = 0; k < o; k++) { x = hp(x, f0); x = lp(x, f1); } return x; };
+  const peakAbs = x => { let m = 0; for (let i = 0; i < x.length; i++) m = Math.max(m, Math.abs(x[i])); return m; };
+  const norm = x => { const m = peakAbs(x) + 1e-9; return x.map(v => v / m); };
+  const rms = x => { let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; return Math.sqrt(s / Math.max(1, x.length)); };
+  function movAvg(x, w) { const y = new Float32Array(x.length); let s = 0; for (let i = 0; i < x.length; i++) { s += x[i]; if (i >= w) s -= x[i - w]; y[i] = s / Math.min(i + 1, w); } return y; }
+  function envAR(n, a, r) { const x = new Float32Array(n).fill(1), na = Math.min(n, sec(a)), nr = Math.min(n, sec(r)); for (let i = 0; i < na; i++) x[i] = i / na; for (let i = 0; i < nr; i++) x[n - nr + i] *= Math.exp(-5 * i / nr); return x; }
+  function fade(n, fi = .01, fo = .01) { const x = new Float32Array(n).fill(1), a = Math.min(n, sec(fi)), b = Math.min(n, sec(fo)); for (let i = 0; i < a; i++) x[i] = i / a; for (let i = 0; i < b; i++) x[n - b + i] *= 1 - i / b; return x; }
+  function compress(x, thr, ratio) {
+    const y = new Float32Array(x.length), at = Math.exp(-1 / (SR * .005)), rl = Math.exp(-1 / (SR * .08)); let e = 0;
+    for (let i = 0; i < x.length; i++) { const a = Math.abs(x[i]); e = a > e ? at * e + (1 - at) * a : rl * e + (1 - rl) * a; const g = e > thr ? Math.pow(e / thr, 1 / ratio - 1) : 1; y[i] = x[i] * g; }
+    return y;
+  }
+  // Freeverb-style room; wet level matched to the dry RMS so 'mix' means what it says
+  function room(L, Rr, size = .6, mix = .5, damp = .5) {
+    const k = SR / 44100, CB = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617], AP = [556, 441, 341, 225], fb = .7 + .28 * size;
+    const run = (x, spread) => {
+      const out = new Float32Array(x.length);
+      for (const d0 of CB) { const d = Math.round((d0 + spread) * k), buf = new Float32Array(d); let p = 0, f = 0; for (let i = 0; i < x.length; i++) { const o = buf[p]; f = o * (1 - damp) + f * damp; buf[p] = x[i] * .015 + f * fb; out[i] += o; p = (p + 1) % d; } }
+      let y = out; for (const d0 of AP) { const d = Math.round((d0 + spread) * k), buf = new Float32Array(d), z = new Float32Array(y.length); let p = 0; for (let i = 0; i < y.length; i++) { const b = buf[p]; z[i] = -y[i] + b; buf[p] = y[i] + b * .5; p = (p + 1) % d; } y = z; }
+      return y;
+    };
+    const wl = run(L, 0), wr = run(Rr, 23), g = (rms(L) + rms(Rr)) / (rms(wl) + rms(wr) + 1e-9);
+    return [L.map((v, i) => v * (1 - mix) + wl[i] * g * mix), Rr.map((v, i) => v * (1 - mix) + wr[i] * g * mix)];
+  }
+  function tapeSpeed(x, spd, start = 0) {   // variable-speed playback (spd: per-sample speed array or number)
+    const y = new Float32Array(spd.length); let p = start;
+    for (let i = 0; i < y.length; i++) { const j = Math.floor(p), f = p - j; y[i] = j + 1 < x.length ? x[j] * (1 - f) + x[j + 1] * f : 0; p += spd[i]; }
+    return y;
+  }
+  // ---------- BS.1770 loudness: K-weighting, 400 ms blocks, 75% overlap, absolute + relative gates ----------
+  function kw(x) {
+    const f = (x, b, a) => { const y = new Float32Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = x[i], o = b[0] * v + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2; x2 = x1; x1 = v; y2 = y1; y1 = o; y[i] = o; } return y; };
+    return f(f(x, [1.53512485958697, -2.69169618940638, 1.19839281085285], [1, -1.69065929318241, .73248077421585]), [1, -2, 1], [1, -1.99004745483398, .99007225036621]);
+  }
+  function lufs(L, Rr) {
+    const a = kw(L), b = kw(Rr), B = sec(.4), H = sec(.1), z = [];
+    for (let s = 0; s + B <= a.length; s += H) { let e = 0; for (let i = s; i < s + B; i++) e += a[i] * a[i] + b[i] * b[i]; z.push(e / B); }
+    const Lk = e => -.691 + 10 * Math.log10(e + 1e-12);
+    const g1 = z.filter(e => Lk(e) > -70); if (!g1.length) return -70;
+    const m1 = g1.reduce((p, c) => p + c, 0) / g1.length, g2 = g1.filter(e => Lk(e) > Lk(m1) - 10);
+    return Lk(g2.reduce((p, c) => p + c, 0) / g2.length);
+  }
+  // look-ahead peak limiter (gain never exceeds what the peak needs, smooth release)
+  function limit(L, Rr, ceil = Math.pow(10, -1.2 / 20)) {
+    const n = L.length, Lh = sec(.004), r = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const p = Math.max(Math.abs(L[i]), Math.abs(Rr[i])); r[i] = p > ceil ? ceil / p : 1; }
+    const m = new Float32Array(n), dq = []; // sliding min over [i, i+Lh]
+    for (let i = n - 1; i >= 0; i--) { while (dq.length && r[dq[dq.length - 1]] >= r[i]) dq.pop(); dq.push(i); while (dq[0] > i + Lh) dq.shift(); m[i] = r[dq[0]]; }
+    const a = movAvg(m, Lh + 1), rel = 1 - Math.exp(-1 / (SR * .08)); let g = 1;
+    for (let i = 0; i < n; i++) { g = Math.min(a[i], g + (1 - g) * rel); L[i] *= g; Rr[i] *= g; }
+  }
+
+  // ======================= buses =======================
+  let N = 0;
+  const bus = () => [new Float32Array(N), new Float32Array(N)];
+  function put(b, x, t, g = 1, pan = 0) {   // mono into stereo bus, linear balance pan
+    const i0 = sec(t), gl = g * Math.min(1, 1 - pan), gr = g * Math.min(1, 1 + pan);
+    for (let i = 0; i < x.length; i++) { const j = i0 + i; if (j < 0) continue; if (j >= N) break; b[0][j] += x[i] * gl; b[1][j] += x[i] * gr; }
+  }
+  function put2(b, L, Rr, t, g = 1) { const i0 = sec(t); for (let i = 0; i < L.length; i++) { const j = i0 + i; if (j < 0) continue; if (j >= N) break; b[0][j] += L[i] * g; b[1][j] += Rr[i] * g; } }
+
+  // ======================= voices =======================
+  const REC = {};   // id -> Float32Array mono 48 kHz (loaded recordings)
+  const VOW = [[730, 1090, 2440], [270, 2290, 3010], [530, 1840, 2480], [660, 1720, 2410], [570, 840, 2410], [440, 1020, 2240], [300, 870, 2240], [490, 1350, 1690]];
+  // placeholder speech: syllables from the text, formant-filtered pulses (PA) or noise (whisper). Not intelligible.
+  function murmurSynth(text, voiced, seed) {
+    const r = mulberry(seed), segs = []; let t = .05;
+    for (const w of text.split(/\s+/)) {
+      const n = Math.max(1, (w.toLowerCase().match(/[aeiouy]+/g) || []).length);
+      for (let k = 0; k < n; k++) { const d = .15 + .09 * r(); segs.push([t, d, VOW[Math.floor(r() * VOW.length)], r() < .5]); t += d + .015; }
+      t += /[.?!]$/.test(w) ? .32 : /,$/.test(w) ? .18 : .05;
+    }
+    const total = sec(t + .1), y = new Float32Array(total), q = text.trim().endsWith('?');
+    segs.forEach(([t0, d, F, cons], si) => {
+      const n = sec(d + .06); let ex;
+      if (voiced) {
+        ex = new Float32Array(n); let ph = 0;
+        for (let i = 0; i < n; i++) { const prog = (t0 + i / SR) / t, f0 = 205 * (1 - .14 * prog + (q && prog > .8 ? .25 * (prog - .8) * 5 : 0)) * (1 + .01 * Math.sin(i / SR * 31)); ph += f0 / SR; if (ph >= 1) ph -= 1; ex[i] = (ph < .4 ? Math.sin(ph / .4 * Math.PI) : 0) - .25; }
+        const g = gauss(n); for (let i = 0; i < n; i++) ex[i] += g[i] * .04;
+      } else ex = gauss(n);
+      let s = new Float32Array(n);
+      F.forEach((f, k) => { const b = biquad(ex, 'bp', f * (voiced ? 1.12 : 1.05), 6 - k, 0), w = [1, .7, .35][k]; for (let i = 0; i < n; i++) s[i] += b[i] * w; });
+      const e = envAR(n, .03, .07); for (let i = 0; i < n; i++) s[i] *= e[i];
+      if (cons) { const m = sec(.04), c = bp(gauss(m), 2500, 7000); const ce = envAR(m, .004, .03); for (let i = 0; i < m; i++) s[i] += c[i] * ce[i] * (voiced ? .25 : .6); }
+      const i0 = sec(t0); for (let i = 0; i < n && i0 + i < total; i++) y[i0 + i] += s[i];
+    });
+    return norm(y);
+  }
+  const lineAudio = l => REC[l.id] || murmurSynth(l.text, l.who === 'PA', l.id.split('').reduce((a, c) => a * 31 + c.charCodeAt(0), 7));
+  const voiceDur = id => { const l = Story.LINES.find(l => l.id === id); return l ? lineAudio(l).length / SR : 2; };
+  function tapewow(x, depth, rate = .55, flutter = .0015) { const spd = new Float32Array(x.length); for (let i = 0; i < x.length; i++) { const t = i / SR; spd[i] = 1 + depth * Math.sin(6.2832 * rate * t) + flutter * Math.sin(6.2832 * 7.3 * t); } return tapeSpeed(x, spd); }
+  // ceiling speaker: band-limited, cone resonance, light distortion, big room (far = further and wetter)
+  function speaker(x, far = .5, wow = 0) {
+    let y = bp(x, 300 + 80 * far, 3900 - 1200 * far, 2); const r2 = bp(y, 1000, 1600, 2); y = y.map((v, i) => v + .5 * r2[i]);
+    const m = peakAbs(y) + 1e-9; y = y.map(v => Math.tanh(2.2 * v / m) / Math.tanh(2.2));
+    if (wow) y = tapewow(y, wow);
+    const pad = new Float32Array(y.length + sec(2.5)); pad.set(y);
+    const [wl, wr] = room(pad, pad.slice(), .55 + .3 * far, 1, .6);
+    return [pad.map((v, i) => v * (1 - .4 * far) + wl[i] * (.18 + .5 * far)), pad.map((v, i) => v * (1 - .4 * far) + wr[i] * (.18 + .5 * far))];
+  }
+  // operator whispering close to the mic: low end, breath noise following the voice, compression
+  function murmur(x) {
+    x = norm(x); const envl = movAvg(x.map(Math.abs), sec(.03)), air = bp(gauss(x.length), 1400, 6000, 2), low = lp(x, 260);
+    let y = x.map((v, i) => v * .8 + low[i] * .9 + air[i] * envl[i] * .9 * .35); y = hp(y, 70); y = compress(norm(y), .25, 3); return norm(y);
+  }
+
+  // ======================= small generators =======================
+  const clack = (d = .08) => { const k = sec(d), n = hp(gauss(k), 1500), y = new Float32Array(k); for (let i = 0; i < k; i++) { const t = i / SR; y[i] = n[i] * Math.exp(-t / .006) + Math.sin(6.2832 * 180 * t) * Math.exp(-t / .02) * .8; } return y; };
+  function motor(d, f0, f1) { const k = sec(d), e = envAR(k, .05, d * .6), nz = bp(gauss(k), 800, 3000), y = new Float32Array(k); let p = 0; for (let i = 0; i < k; i++) { p += 6.2832 * lerp(f0, f1, i / k) / SR; y[i] = (Math.sin(p) + .4 * Math.sin(2 * p) + .2 * Math.sin(3 * p)) * e[i] * .3 + nz[i] * .05 * e[i]; } return y; }
+  function step(v) { const n = sec(.2), f = 62 + 22 * R(), nl = lp(gauss(n), 320), sq = bp(gauss(n), 900, 2600, 2), g = .25 + .2 * R(), y = new Float32Array(n); for (let i = 0; i < n; i++) { const t = i / SR; y[i] = ((Math.sin(6.2832 * f * t) * Math.exp(-t / .045) + nl[i] * Math.exp(-t / .05) * 1.4) * .8 + sq[i] * Math.exp(-Math.max(t - .025, 0) / .03) * (t > .02 ? g : 0)) * v; } return y; }
+  function rustle() { const d = .35 + .25 * R(), n = sec(d), x = bp(gauss(n), 1500, 6500, 2), e = envAR(n, d * .3, d * .5), m = movAvg(gauss(n), 300); return x.map((v, i) => v * e[i] * (.5 + .5 * Math.abs(m[i]) * 8)); }
+  function breath(dIn, dOut) {
+    const n1 = sec(dIn), n2 = sec(dOut), a = bp(gauss(n1), 900, 2800, 2), b = bp(gauss(n2), 400, 1900, 2), y = new Float32Array(n1 + sec(.08) + n2);
+    for (let i = 0; i < n1; i++) y[i] = a[i] * Math.pow(Math.sin(Math.PI * i / n1), 1.5);
+    for (let i = 0; i < n2; i++) y[n1 + sec(.08) + i] = b[i] * Math.pow(Math.sin(Math.PI * i / n2), 2) * .7;
+    return y;
+  }
+  const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+  // placeholder in-world music: soft electric piano + vibraphone loop, heard through a wall
+  function holdMusic(dur) {
+    const n = sec(dur), y = new Float32Array(n), B = 60 / 86, BAR = 4 * B;
+    const CH = [[48, [64, 67, 71, 74]], [45, [64, 67, 69, 72]], [50, [65, 69, 72, 76]], [43, [65, 67, 71, 74]]];
+    const MEL = [[76, 2], [74, 1], [72, 1], [69, 3], [null, 1], [77, 2], [76, 1], [74, 1], [71, 3], [null, 1]];
+    const note = (t0, f, d, kind, g) => {   // incremental oscillators + multiplicative envelopes (fast)
+      const i0 = sec(t0), k = Math.min(sec(d + .45), n - i0), w = 6.2832 * f / SR;
+      const tau = kind === 'ep' ? .7 : kind === 'bass' ? .5 : 1.1, dk = Math.exp(-1 / (SR * tau)), dm = Math.exp(-1 / (SR * .3)), rk = Math.exp(-1 / (SR * .15)), nd = sec(d);
+      let e = 1, em = 1, rel = 1;
+      for (let i = 0; i < k; i++) { const p = w * i, t = i / SR;
+        const v = kind === 'ep' ? Math.sin(p + .6 * Math.sin(2 * p) * em) : kind === 'bass' ? Math.sin(p) : (Math.sin(p) + .15 * Math.sin(4 * p)) * (1 + .25 * Math.sin(34.56 * t));
+        y[i0 + i] += v * e * rel * g * (i < 240 ? i / 240 : 1); e *= dk; em *= dm; if (i > nd) rel *= rk; }
+    };
+    for (let bar = 0; bar * BAR < dur; bar++) {
+      const [bass, ch] = CH[bar % 4], t0 = bar * BAR;
+      note(t0, midi(bass - 12), B * 1.8, 'bass', .5); note(t0 + 2 * B, midi(bass - 5), B * 1.5, 'bass', .4);
+      for (const beat of [1, 3]) ch.forEach((m, k) => note(t0 + beat * B + k * .012, midi(m), B * .6, 'ep', .14));
+    }
+    let t = 0, k = 0; while (t < dur) { const [m, d] = MEL[k % MEL.length]; if (m) note(t, midi(m), d * B * .9, 'vib', .22); t += d * B; k++; }
+    return norm(y);
+  }
+
+  // ======================= the soundtrack =======================
+  let STEMS = null, GAIN = 1, STATS = {};
+  function render() {
+    const t0p = performance.now(), S = Story, T = S.T, U = S.unwarp, DUR = S.DUR; R = mulberry(41);
+    N = sec(DUR); const music = bus(), fx = bus(), voice = bus(), hiss = bus();
+    const recOn = U(T.rollIn) - .25, recOff = U(T.recOff), endT = U(T.endCard[0]);
+    const tear = T.tear && [U(T.tear[0]), U(T.tear[1])], hush = T.hush && [U(T.hush[0]), U(T.hush[1])];
+    const alive = i => { const t = i / SR; return t > recOn + .25 && t < recOff; };
+    // ---------- voices + PA chimes ----------
+    const va = new Float32Array(Math.ceil(DUR * 100) + 1);   // voice activity at 100 Hz (ducking)
+    const meWin = [];
+    for (const l of S.LINES) {
+      const t = U(l.t), x = lineAudio(l);
+      if (l.who === 'PA') { const [a, b] = speaker(x, l.far ?? CFG.paFar, l.wow || 0), m = Math.max(peakAbs(a), peakAbs(b)) + 1e-9; put2(voice, a.map(v => v / m), b.map(v => v / m), t, CFG.paGain); }
+      else { put(voice, murmur(x), t, CFG.meGain, -.05); meWin.push([t, t + x.length / SR]); }
+      for (let k = Math.floor(t * 100); k < (t + x.length / SR) * 100 && k < va.length; k++) va[k] = 1;
+      if (l.chime != null) {   // two-tone chime through the same speaker; goes flat after a tear
+        const tc = U(l.chime), det = tear && tc > tear[0] ? -.55 : 0, c = new Float32Array(sec(2.2));
+        [[76 + det, 0], [72 + det, .42]].forEach(([m, dt]) => { const f = midi(m), i0 = sec(dt); for (let i = 0; i + i0 < c.length; i++) { const tt = i / SR; c[i0 + i] += (Math.sin(6.2832 * f * tt) + .2 * Math.sin(6.2832 * f * 4 * tt)) * Math.exp(-tt / .9) * Math.min(1, tt / .003); } });
+        const [a, b] = speaker(c, .5), m = Math.max(peakAbs(a), peakAbs(b)) + 1e-9; put2(voice, a.map(v => v / m), b.map(v => v / m), tc, .42);
+        for (let k = Math.floor(tc * 100); k < (tc + 1.2) * 100 && k < va.length; k++) va[k] = Math.max(va[k], .6);
+      }
+    }
+    // ducking curve: hold 0.3 s, smooth 0.25 s, about -8 dB
+    const vh = new Float32Array(va.length); for (let i = 0; i < va.length; i++) { let m = 0; for (let j = Math.max(0, i - 15); j <= Math.min(va.length - 1, i + 15); j++) m = Math.max(m, va[j]); vh[i] = m; }
+    const vs = movAvg(vh, 25), duck = i => 1 - .6 * clamp(vs[Math.min(vs.length - 1, Math.floor(i / SR * 100) + 12)]);
+    // ---------- room tone: chosen by the story (Story.SOUND.roomTone) ----------
+    // 'fluorescent' = 120 Hz hum + ballast buzz + whine + failing-tube crackle. It gets tiring fast, so use it
+    // only when buzzing tubes are part of the story. 'air' = a quiet room: soft low noise, no pitch. null = none.
+    const TONE = S.SOUND.roomTone === undefined ? 'air' : S.SOUND.roomTone, FLUO = TONE === 'fluorescent';
+    const G = new Float32Array(N); for (let i = 0; i < N; i += 48) { const g = World.globalLight(i / SR); for (let j = i; j < Math.min(N, i + 48); j++) G[j] = g; }   // light level at 1 ms resolution
+    if (TONE === 'air') {
+      const a = lp(hp(gauss(N), 40), 900, 2), b = lp(hp(gauss(N), 40), 900, 2), sway = i => .8 + .2 * Math.sin(6.2832 * .05 * i / SR);
+      for (let i = 0; i < N; i++) { const k = (alive(i) ? 1 : 0) * duck(i) * CFG.airGain * sway(i); fx[0][i] += a[i] * k; fx[1][i] += b[i] * k; }
+    }
+    if (FLUO) {
+    { const hum = new Float32Array(N), sq = new Float32Array(N); let ph = 0;
+      for (let i = 0; i < N; i++) { const t = i / SR; ph += 6.2832 * 120 * (1 + .004 * Math.sin(.8168 * t) + .002 * Math.sin(4.461 * t)) / SR;
+        hum[i] = Math.sin(ph + 1.3) + .55 * Math.sin(2 * ph + 2.6) + .42 * Math.sin(3 * ph + 3.9) + .22 * Math.sin(4 * ph + 5.2) + .16 * Math.sin(5 * ph + 6.5) + .06 * Math.sin(7 * ph + 9.1);
+        sq[i] = (Math.sin(ph) >= 0 ? .3 : -.3); }
+      const nz = gauss(N); for (let i = 0; i < N; i++) sq[i] += nz[i] * .05;
+      const buzz = bp(sq, 900, 3200, 2);
+      for (let i = 0; i < N; i++) { const t = i / SR, k = G[i] * (alive(i) ? 1 : 0) * duck(i) * CFG.humGain, wh = Math.sin(57491 * t + .3 * Math.sin(1.2566 * t)) * .0125;
+        fx[0][i] += (hum[i] * .1 + buzz[i] * .025 + wh) * k; const j = Math.max(0, i - 37); fx[1][i] += (hum[j] * .1 + buzz[j] * .025 + wh) * k; }
+      for (let k = 0; k < 9; k++) {   // a few failing tubes crackling
+        const t0 = 4 + R() * Math.max(1, recOff - 14), n = sec(.4 + R() * .8), z = bp(gauss(n), 1800, 4200, 2), e = envAR(n, .05, .2);
+        let gate = 0; const c = z.map((v, i) => { if (i % 480 === 0) gate = R() > .5 ? 1 : 0; return v * gate * e[i]; }); put(fx, c, t0, .018 * CFG.humGain / 1.3, R() * .6 - .3);
+      }
+    }
+    }
+    // ---------- tape hiss (kept separately: it is all that remains after REC stops) ----------
+    { const h = hp(gauss(N), 3500, 2), h2 = hp(gauss(N), 3500, 2);
+      for (let i = 0; i < N; i++) { const t = i / SR, k = (alive(i) ? 1 : 0) + (t > recOff + .25 ? .45 * clamp(1 - (t - endT) / 3.2) : 0); hiss[0][i] = h[i] * CFG.hissGain * k; hiss[1][i] = h2[i] * CFG.hissGain * k; } }
+    // ---------- footsteps from the walk (one per stride) ----------
+    { let last = 0; for (let t = 0; t < recOff; t += 1 / 120) { const n = Math.floor(Rig.dist(t) / Rig.STRIDE); if (n > last) { last = n; put(fx, step(clamp(Rig.speed(t) / 1.3, .4, 1.1) * (.8 + .3 * R())), t, CFG.stepGain, R() * .3 - .15); } } }
+    // ---------- cloth rustle from the camera's turn rate + scripted extras ----------
+    { let prev = null, lastR = -9; for (let t = recOn; t < recOff; t += 1 / 30) { const p = Rig.pose(t); if (prev) { const w = Math.abs(p.yaw - prev.yaw) * 30 + Math.abs(p.pitch - prev.pitch) * 30; if (w > .45 && t - lastR > .7) { put(fx, rustle(), t, CFG.rustleGain * clamp(w / 1.2, .4, 1), R() * .6 - .3); lastR = t; } } prev = p; }
+      for (const [t, v] of S.SOUND.rustle || []) put(fx, rustle(), U(t), CFG.rustleGain * v, R() * .6 - .3); }
+    // ---------- camera mechanics: REC clack + tape motor, zoom servo, autofocus ticks ----------
+    put(fx, clack(), recOn, .35); put(fx, motor(.9, 90, 230), recOn + .05, .12); put(fx, clack(), recOff, .45); put(fx, motor(.7, 230, 60), recOff + .03, .14);
+    // zoom servo (the Environmental Verification sound): a 1180 Hz motor tone with its octave, chopped by a
+    // 92 Hz gear buzz, plus a band of motor noise at 900 Hz; 80 ms smooth ramps in and out.
+    // Windows come from Story.SOUND.zoom if given, otherwise from the FOV keyframes.
+    { const wins = (S.SOUND.zoom || []).map(([a, b]) => [U(a), U(b)]);
+      if (!wins.length) { let z0 = null; for (let t = 0; t <= recOff; t += 1 / 60) { const on = Math.abs(S.FOV(S.warp(t + 1 / 120)) - S.FOV(S.warp(t - 1 / 120))) * 60 > 1.5; if (on && z0 == null) z0 = t; if ((!on || t + 1 / 60 > recOff) && z0 != null) { if (t - z0 > .1) wins.push([z0, t]); z0 = null; } } }
+      const k = CFG.zoomGain * 6.6;   // 6.6 maps the original film's levels onto this engine's mix
+      for (const [a, b] of wins) {
+        const i0 = sec(a), n = sec(b - a), bpf = biquad, nz = new Float32Array(n); for (let i = 0; i < n; i++) nz[i] = R() * 2 - 1;
+        const band = bpf(nz, 'bp', 900, 2.5), y = new Float32Array(n); let ph = 0;
+        for (let i = 0; i < n; i++) { const t = a + i / SR, z = Math.min(ss(seg(t, a, a + .08)), 1 - ss(seg(t, b - .08, b)));
+          ph += 6.2832 * 1180 / SR; const buzz = .6 + .4 * Math.sign(Math.sin(6.2832 * 92 * t));
+          y[i] = ((Math.sin(ph) + .35 * Math.sin(ph * 2)) * .0045 * buzz + band[i] * .006) * z * k; }
+        for (let i = 0; i < n && i0 + i < N; i++) { fx[0][i0 + i] += y[i]; fx[1][i0 + i] += y[i] * .95; }
+      } }
+    { let last = -9, prevD = null; for (let t = 0; t < recOff; t += 1 / 60) { const D = 1 / Rig.pose(t).focus; if (prevD != null && Math.abs(D - prevD) * 60 > .35 && t - last > .12) { const k = sec(.012), c = hp(gauss(k), 3000).map((v, i) => v * Math.exp(-i / SR / .002)); for (let j = 0; j < 2 + Math.floor(R() * 3); j++) put(fx, c, t + j * (.04 + R() * .05), .08); last = t; } prevD = D; } }
+    // ---------- flickers: ballast tink + arc buzz for tubes, a dry relay click for any other light ----------
+    (T.flick || []).map(U).forEach((f, i) => [[f - .03, .5], [f + .1 + i * .02, .8]].forEach(([t0, gg]) => {
+      if (!FLUO) { put(fx, clack(.03), t0, .06 * gg); return; }
+      const k = sec(.12), z = new Float32Array(k), nz = gauss(k); for (let j = 0; j < k; j++) z[j] = Math.sign(Math.sin(6.2832 * 120 * j / SR)) + nz[j] * .3;
+      const zz = bp(z, 1500, 4000), y = new Float32Array(k); for (let j = 0; j < k; j++) { const t = j / SR; y[j] = (Math.sin(6.2832 * 3150 * t) + .6 * Math.sin(6.2832 * 4720 * t)) * Math.exp(-t / .03) * .15 + zz[j] * Math.exp(-t / .04) * .3; }
+      put(fx, y, t0, .22 * gg); }));
+    // ---------- breath, from the same phase table as the camera ----------
+    { let lastC = Math.floor(Rig.breath(0) / 6.2832);
+      for (let t = 1; t < recOff - .5; t += 1 / 120) {
+        const c = Math.floor(Rig.breath(t) / 6.2832); if (c === lastC) continue; lastC = c;
+        if (Rig.hold(t) < .6 || meWin.some(([a, b]) => t > a - .6 && t < b)) continue;
+        const per = 6.2832 / Math.max(.5, (Rig.breath(t + .05) - Rig.breath(t - .05)) / .1), g = CFG.breathGain * (.6 + .8 * S.FEAR(S.warp(t)));
+        put(br(), breath(per * .3, per * .38), t, g);
+      }
+      if (hush) put(br(), breath(.15, 1.3), hush[1] + .35, CFG.breathGain * 1.3);   // the long exhale after holding it
+      function br() { return fx; }
+    }
+    // ---------- in-world music through a wall: slows after the tear, stops at musicEnd ----------
+    if (CFG.music) {
+      const dry = holdMusic(DUR + 12), spd = new Float32Array(N), mEnd = S.SOUND.musicEnd != null ? U(S.SOUND.musicEnd) : DUR;
+      for (let i = 0; i < N; i++) { const t = i / SR, base = tear ? lerp(1, .985, seg(t, 0, tear[0])) * lerp(1, .92, seg(t, tear[0], tear[1] + .7)) : 1, depth = tear ? lerp(.002, .013, seg(t, tear[0] - 6, tear[1] + .7)) : .002; spd[i] = base * (1 + depth * Math.sin(6.2832 * .47 * t)); }
+      let m = bp(tapeSpeed(dry, spd, sec(8)), 350, 2400, 2);
+      for (let i = 0; i < N; i++) { const t = i / SR; m[i] *= clamp(t / 1.2) * (t < mEnd ? 1 : 0) * (G[i] > .5 ? 1 : 0) * (alive(i) ? 1 : 0) * duck(i); }
+      const [a, b] = room(m, m.slice(), .8, .75, .7); put2(music, a, b, 0, CFG.musicGain);
+    }
+    // ---------- low drone (dread bed) ----------
+    if (S.SOUND.drone) {
+      const [d0, d1] = S.SOUND.drone.map(U), g = gauss(N); let w = 0; const br = new Float32Array(N); for (let i = 0; i < N; i++) { w += g[i] * .01; w *= .9999; br[i] = w; }
+      const low = norm(lp(hp(br, 18), 70));
+      for (let i = 0; i < N; i++) { const t = i / SR, e = Math.pow(clamp((t - d0) / (d1 - d0)), 1.6) * (t < d1 ? 1 : 0), v = (low[i] * .6 + Math.sin(6.2832 * 41 * t) * .5 + Math.sin(6.2832 * 43.5 * t) * .4) * e * CFG.droneGain * duck(i); music[0][i] += v; music[1][i] += v; }
+    }
+    for (const e of S.SOUND.extra || []) if (CUSTOM[e.type]) CUSTOM[e.type]({ ...e, t: U(e.t) }, { fx, music, voice, put, put2, gauss, bp, lp, hp, envAR, fade, clack, sec, SR });
+    // ---------- tracking tear: everything chopped + a noise burst ----------
+    const stems = [music, fx, voice];
+    if (tear) {
+      const a = sec(tear[0]), b = Math.min(N, sec(tear[1])), gate = new Float32Array(b - a);
+      for (let i = 0; i < gate.length; i += 960) { const v = R() > .45 ? 1 : 0; for (let j = i; j < Math.min(gate.length, i + 960); j++) gate[j] = v; }
+      const gs = movAvg(gate, 48); for (const s of stems) for (let c = 0; c < 2; c++) for (let i = a; i < b; i++) s[c][i] *= gs[i - a];
+      const n1 = bp(gauss(b - a), 300, 7000), n2 = bp(gauss(b - a), 60, 400);
+      for (let i = a; i < b; i++) { const u = (i - a) / (b - a), v = n1[i - a] * .12 * Math.pow(Math.sin(Math.PI * u), .5) + n2[i - a] * .08; fx[0][i] += v; fx[1][i] += i - a >= 13 ? n1[i - a - 13] * .12 * Math.pow(Math.sin(Math.PI * u), .5) + n2[i - a] * .08 : v; }
+    }
+    // ---------- held breath: true digital silence, then every ballast restarting at once ----------
+    if (hush) {
+      const a = sec(hush[0]), b = sec(hush[1]), f = sec(.004);
+      for (const s of [...stems, hiss]) for (let c = 0; c < 2; c++) { for (let i = 0; i < f; i++) s[c][a - f + i] *= 1 - i / f; for (let i = a; i < b; i++) s[c][i] = 0; }
+      const k = sec(.5), nz = lp(gauss(k), 500), th = new Float32Array(k), sq = new Float32Array(k); for (let i = 0; i < k; i++) sq[i] = Math.sign(Math.sin(6.2832 * 120 * i / SR)); const sb = bp(sq, 1500, 4000);
+      for (let i = 0; i < k; i++) { const t = i / SR; th[i] = Math.sin(6.2832 * 48 * t) * Math.exp(-t / .12) + nz[i] * Math.exp(-t / .05) * .6 + (FLUO ? sb[i] * Math.exp(-t / .08) * .15 : 0); }
+      for (let i = 0; i < f * 6; i++) th[i] *= i / (f * 6);   // fade the bed back in without a click
+      put(fx, th, hush[1], .34);
+    }
+    // blank tape after REC stops: only hiss
+    { const a = sec(recOff + .25); for (const s of stems) for (let c = 0; c < 2; c++) s[c].fill(0, a); }
+    for (let c = 0; c < 2; c++) for (let i = 0; i < N; i++) fx[c][i] += hiss[c][i];
+    // ---------- loudness: normalise the full mix to target, limit, measure again, correct once ----------
+    const sum = () => [0, 1].map(c => { const o = new Float32Array(N); for (const s of stems) for (let i = 0; i < N; i++) o[i] += s[c][i]; return o; });
+    const [L0, R0] = sum(), l1 = lufs(L0, R0); let g = Math.pow(10, (CFG.target - l1) / 20);
+    const L1 = L0.map(v => v * g), R1 = R0.map(v => v * g); limit(L1, R1); const l2 = lufs(L1, R1); g *= Math.pow(10, (CFG.target - l2) / 20);
+    STEMS = { music, fx, voice }; GAIN = g;
+    const fm = mixdown({ music: 1, fx: 1, voice: 1 });
+    // balance report: speech RMS inside the voice windows vs. the bed
+    const win = i => va[Math.min(va.length - 1, Math.floor(i / SR * 100))] >= 1; let sv = 0, nv = 0, sb2 = 0, nb = 0;
+    for (let i = 0; i < N; i += 4) { const v = (voice[0][i] + voice[1][i]) * .5 * g, b = ((music[0][i] + fx[0][i]) + (music[1][i] + fx[1][i])) * .5 * g; if (win(i)) { sv += v * v; nv++; sb2 += b * b; nb++; } }
+    const db = x => (20 * Math.log10(x + 1e-9)).toFixed(1);
+    STATS = { lufs: +lufs(fm[0], fm[1]).toFixed(2), peak: +db(Math.max(peakAbs(fm[0]), peakAbs(fm[1]))), speechRms: +db(Math.sqrt(sv / Math.max(1, nv))), bedRmsUnderSpeech: +db(Math.sqrt(sb2 / Math.max(1, nb))),
+      stems: Object.fromEntries(Object.entries(STEMS).map(([k, s]) => [k, +lufs(s[0].map(v => v * g), s[1].map(v => v * g)).toFixed(1)])), ms: Math.round(performance.now() - t0p) };
+    console.log('[audio]', JSON.stringify(STATS));
+    return STATS;
+  }
+  // selected stems at the shared gain, limited (sel = {music, fx, voice} truthy flags)
+  function mixdown(sel) {
+    const L = new Float32Array(N), Rr = new Float32Array(N);
+    for (const k of ['music', 'fx', 'voice']) if (sel[k]) { const s = STEMS[k]; for (let i = 0; i < N; i++) { L[i] += s[0][i] * GAIN; Rr[i] += s[1][i] * GAIN; } }
+    limit(L, Rr); return [L, Rr];
+  }
+  function wav(L, Rr) {   // 16-bit 48 kHz stereo
+    const n = L.length, buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+    v.setUint32(24, SR, true); v.setUint32(28, SR * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 4, true);
+    for (let i = 0; i < n; i++) { v.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); v.setInt16(46 + i * 4, clamp(Rr[i], -1, 1) * 32767, true); }
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+  async function loadRecording(id, arrayBuffer) {
+    const ac = new OfflineAudioContext(1, 1, SR), b = await ac.decodeAudioData(arrayBuffer);
+    const oc = new OfflineAudioContext(1, Math.ceil(b.duration * SR), SR), s = oc.createBufferSource(); s.buffer = b; s.connect(oc.destination); s.start();
+    const r = await oc.startRendering(); REC[id] = new Float32Array(r.getChannelData(0)); return REC[id].length / SR;
+  }
+  return { SR, CFG, CUSTOM, render, mixdown, wav, loadRecording, voiceDur, hasRecording: id => !!REC[id], stats: () => STATS, n: () => N };
+})();
+
+// ---------- mux.js : MP4 writer (reusable as is) ----------
+// Video: avc1 (avcC from the encoder's decoderConfig.description) or vp09 (vpcC built by hand).
+// Audio: AAC (mp4a + esds with the AudioSpecificConfig) or uncompressed PCM (QuickTime 'sowt',
+// 16-bit little-endian, one 4-byte stereo frame per sample, 4800 frames per chunk).
+// One sample per chunk (PCM: 4800 frames per chunk), chunks interleaved by time, moov written before
+// mdat (built once to measure, then again with the real offsets). Brand 'qt  ' when the file carries PCM.
+const Mux = (() => {
+  const enc = new TextEncoder();
+  function box(type, ...parts) {
+    const body = parts.flat(Infinity).filter(p => p != null), size = 8 + body.reduce((s, p) => s + p.length, 0), out = new Uint8Array(size), v = new DataView(out.buffer);
+    v.setUint32(0, size); out.set(enc.encode(type), 4); let o = 8; for (const p of body) { out.set(p, o); o += p.length; } return out;
+  }
+  const full = (type, ver, flags, ...parts) => box(type, u8(ver), u24(flags), ...parts);
+  const u8 = n => new Uint8Array([n & 255]);
+  const u16 = n => new Uint8Array([(n >> 8) & 255, n & 255]);
+  const u24 = n => new Uint8Array([(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+  const u32 = n => { const a = new Uint8Array(4); new DataView(a.buffer).setUint32(0, n >>> 0); return a; };
+  const str = s => enc.encode(s);
+  const zeros = n => new Uint8Array(n);
+  const MATRIX = [0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000].map(u32);
+
+  // tracks: [{ kind:'video', codec:'avc'|'vp9', width, height, timescale, samples:[{data, dur, key}] , description },
+  //          { kind:'audio', codec:'aac'|'pcm', sampleRate, channels, samples:[{data, dur}] (aac) | pcm: Int16Array interleaved, asc }]
+  function build(tracks, { major } = {}) {
+    // ---- chunk list ----
+    const chunks = [];   // {track, data, time, samples:[sizes...], n}
+    tracks.forEach((tr, ti) => {
+      tr.id = ti + 1; tr.chunks = [];
+      if (tr.codec === 'pcm') {
+        const per = 4800, fr = tr.pcm.length / tr.channels;
+        for (let s = 0; s < fr; s += per) { const n = Math.min(per, fr - s), d = new Uint8Array(tr.pcm.buffer, tr.pcm.byteOffset + s * tr.channels * 2, n * tr.channels * 2); const c = { tr, data: d, time: s / tr.sampleRate, n }; tr.chunks.push(c); chunks.push(c); }
+        tr.duration = fr; tr.timescale = tr.sampleRate;
+      } else {
+        let t = 0; for (const s of tr.samples) { const c = { tr, data: s.data, time: t / tr.timescale, n: 1, s }; tr.chunks.push(c); chunks.push(c); t += s.dur; }
+        tr.duration = t;
+      }
+    });
+    chunks.sort((a, b) => a.time - b.time || a.tr.id - b.tr.id);
+    const pcm = tracks.some(t => t.codec === 'pcm');
+    const ftyp = pcm ? box('ftyp', str('qt  '), u32(0x200), str('qt  '), str('isom')) : box('ftyp', str(major || 'isom'), u32(0x200), str('isom'), str('iso2'), str('avc1'), str('mp41'));
+    const mdatSize = 8 + chunks.reduce((s, c) => s + c.data.length, 0);
+    const moovFor = base => { let o = base + 8; for (const c of chunks) { c.offset = o; o += c.data.length; } return moov(tracks); };
+    let mv = moovFor(ftyp.length + 1e6);            // measure
+    mv = moovFor(ftyp.length + mv.length);           // real offsets
+    const out = new Uint8Array(ftyp.length + mv.length + mdatSize); let o = 0;
+    out.set(ftyp, o); o += ftyp.length; out.set(mv, o); o += mv.length;
+    new DataView(out.buffer).setUint32(o, mdatSize); out.set(str('mdat'), o + 4); o += 8;
+    for (const c of chunks) { out.set(c.data, o); o += c.data.length; }
+    return out;
+  }
+  function moov(tracks) {
+    const MT = 1000, dur = Math.max(...tracks.map(t => Math.round(t.duration / t.timescale * MT)));
+    const mvhd = full('mvhd', 0, 0, u32(0), u32(0), u32(MT), u32(dur), u32(0x10000), u16(0x100), zeros(10), MATRIX, zeros(24), u32(tracks.length + 1));
+    return box('moov', mvhd, tracks.map(t => trak(t, MT)));
+  }
+  function trak(t, MT) {
+    const vid = t.kind === 'video', d = Math.round(t.duration / t.timescale * MT);
+    const tkhd = full('tkhd', 0, 3, u32(0), u32(0), u32(t.id), u32(0), u32(d), zeros(8), u16(0), u16(0), u16(vid ? 0 : 0x100), u16(0), MATRIX, u32((vid ? t.width : 0) << 16), u32((vid ? t.height : 0) << 16));
+    const mdhd = full('mdhd', 0, 0, u32(0), u32(0), u32(t.timescale), u32(t.duration), u16(0x55c4), u16(0));
+    const hdlr = full('hdlr', 0, 0, u32(0), str(vid ? 'vide' : 'soun'), zeros(12), str(vid ? 'VideoHandler' : 'SoundHandler'), zeros(1));
+    const mhd = vid ? full('vmhd', 0, 1, zeros(8)) : full('smhd', 0, 0, zeros(4));
+    const dinf = box('dinf', full('dref', 0, 0, u32(1), full('url ', 0, 1)));
+    return box('trak', tkhd, box('mdia', mdhd, hdlr, box('minf', mhd, dinf, stbl(t))));
+  }
+  function stbl(t) {
+    const vid = t.kind === 'video';
+    let entry;
+    if (vid) {
+      const vis = [zeros(6), u16(1), zeros(16), u16(t.width), u16(t.height), u32(0x480000), u32(0x480000), u32(0), u16(1), zeros(32), u16(0x18), u16(0xffff)];
+      if (t.codec === 'avc') entry = box('avc1', vis, box('avcC', t.description));
+      else entry = box('vp09', vis, full('vpcC', 1, 0, u8(0), u8(40), u8((8 << 4) | (1 << 1) | 0), u8(1), u8(1), u8(1), u16(0)));
+    } else if (t.codec === 'aac') {
+      const asc = t.asc, dsi = [u8(5), u8(asc.length), asc];
+      const dcd = [u8(4), u8(13 + 2 + asc.length), u8(0x40), u8(0x15), u24(0), u32(t.bitrate || 192000), u32(t.bitrate || 192000), dsi];
+      const esd = [u8(3), u8(3 + 2 + 13 + 2 + asc.length + 3), u16(1), u8(0), dcd, u8(6), u8(1), u8(2)];
+      entry = box('mp4a', zeros(6), u16(1), zeros(8), u16(t.channels), u16(16), u16(0), u16(0), u32(t.sampleRate << 16), full('esds', 0, 0, esd));
+    } else {
+      entry = box('sowt', zeros(6), u16(1), u16(0), u16(0), u32(0), u16(t.channels), u16(16), u16(0), u16(0), u32(t.sampleRate << 16));
+    }
+    const stsd = full('stsd', 0, 0, u32(1), entry);
+    let stts, stsz, stsc, stss = null;
+    if (t.codec === 'pcm') {
+      stts = full('stts', 0, 0, u32(1), u32(t.duration), u32(1));
+      stsz = full('stsz', 0, 0, u32(t.channels * 2), u32(t.duration));
+      const last = t.chunks[t.chunks.length - 1].n, n = t.chunks.length, ent = [[1, 4800]]; if (last !== 4800 && n > 1) ent.push([n, last]); else if (n === 1) ent[0][1] = last;
+      stsc = full('stsc', 0, 0, u32(ent.length), ent.map(([c, s]) => [u32(c), u32(s), u32(1)]));
+    } else {
+      const runs = []; for (const s of t.samples) { const r = runs[runs.length - 1]; if (r && r[1] === s.dur) r[0]++; else runs.push([1, s.dur]); }
+      stts = full('stts', 0, 0, u32(runs.length), runs.map(([c, d]) => [u32(c), u32(d)]));
+      stsz = full('stsz', 0, 0, u32(0), u32(t.samples.length), t.samples.map(s => u32(s.data.length)));
+      stsc = full('stsc', 0, 0, u32(1), u32(1), u32(1), u32(1));
+      if (vid) { const k = t.samples.map((s, i) => s.key ? i + 1 : 0).filter(Boolean); stss = full('stss', 0, 0, u32(k.length), k.map(u32)); }
+    }
+    const stco = full('stco', 0, 0, u32(t.chunks.length), t.chunks.map(c => u32(c.offset)));
+    return box('stbl', stsd, stts, stss, stsc, stsz, stco);
+  }
+  // AAC helpers: strip ADTS headers and rebuild the AudioSpecificConfig from the header if needed
+  function adts(data) {
+    if (data.length > 7 && data[0] === 0xff && (data[1] & 0xf0) === 0xf0) {
+      const prot = data[1] & 1, prof = ((data[2] >> 6) & 3) + 1, sfi = (data[2] >> 2) & 15, ch = ((data[2] & 1) << 2) | (data[3] >> 6);
+      return { payload: data.subarray(prot ? 7 : 9), asc: new Uint8Array([(prof << 3) | (sfi >> 1), ((sfi & 1) << 7) | (ch << 3)]) };
+    }
+    return { payload: data, asc: null };
+  }
+  return { build, adts };
+})();
+
+// ---------- export.js : WebCodecs MP4 export, MediaRecorder fallback, WAV, PNG, save (reusable as is) ----------
+const Exporter = (() => {
+  const u8of = x => ArrayBuffer.isView(x) ? new Uint8Array(x.buffer, x.byteOffset, x.byteLength).slice() : new Uint8Array(x).slice();
+  const VCODECS = ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'vp09.00.40.08'];
+  const isApple = /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh|iPhone|iPad/.test(navigator.userAgent);
+  const vcfg = (codec, w, h) => ({ codec, width: w, height: h, bitrate: 14e6, framerate: 30, ...(codec.startsWith('avc') ? { avc: { format: 'avc' } } : {}) });
+  async function pickVideo(w, h) {
+    if (typeof VideoEncoder === 'undefined') return null;
+    for (const c of VCODECS) { try { const r = await VideoEncoder.isConfigSupported(vcfg(c, w, h)); if (r.supported) return c; } catch (e) { } }
+    return null;
+  }
+  async function aacOK() {
+    if (typeof AudioEncoder === 'undefined') return false;
+    try { return (await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 })).supported; } catch (e) { return false; }
+  }
+  async function resolveSound(pref) { if (pref === 'pcm') return 'pcm'; if (pref === 'aac') return (await aacOK()) ? 'aac' : 'pcm'; return isApple ? 'pcm' : (await aacOK()) ? 'aac' : 'pcm'; }
+  const vName = c => c ? (c.startsWith('avc') ? 'H.264' : 'VP9') : 'none';
+  const sName = s => s === 'aac' ? 'AAC' : 'uncompressed PCM';
+  // what this browser will produce, before exporting
+  async function describe(frame, soundPref) { const [w, h] = frame === '4x3' ? [1440, 1080] : [1920, 1080]; const v = await pickVideo(w, h), s = await resolveSound(soundPref); return v ? `This browser will make ${vName(v)} video with ${sName(s)} sound.` : 'This browser has no WebCodecs video encoder: export records in real time instead (MP4 or WebM, depending on the browser).'; }
+
+  async function save(filename, blob) {
+    if (window.__saveHook) return window.__saveHook(filename, blob);   // test harness
+    try { if (window.claude && window.claude.use) { const d = await window.claude.use('downloads'); if (d && d.save) { await d.save({ filename, data: blob }); return; } } } catch (e) { console.warn('downloads capability unavailable, using a link', e); }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+  }
+  function suffix(o) {
+    return (o.frame === '4x3' ? '-4x3' : '') + (o.osd ? '' : '-noosd') + (o.caps ? '-captions' : '') + ['music', 'fx', 'voice'].filter(k => !o.stems[k]).map(k => '-no' + k).join('');
+  }
+  async function encodeAudio(L, Rr, sound) {
+    const SR = 48000, n = L.length;
+    if (sound === 'pcm') { const pcm = new Int16Array(n * 2); for (let i = 0; i < n; i++) { pcm[2 * i] = Math.max(-1, Math.min(1, L[i])) * 32767; pcm[2 * i + 1] = Math.max(-1, Math.min(1, Rr[i])) * 32767; } return { kind: 'audio', codec: 'pcm', sampleRate: SR, channels: 2, pcm }; }
+    const out = []; let asc = null, err = null;
+    const enc = new AudioEncoder({ output: (c, m) => { const d = new Uint8Array(c.byteLength); c.copyTo(d); const r = Mux.adts(d); if (!asc && m && m.decoderConfig && m.decoderConfig.description) asc = u8of(m.decoderConfig.description); asc = asc || r.asc; out.push({ data: r.payload, dur: 1024 }); }, error: e => err = e });
+    enc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 2, bitrate: 192000, aac: { format: 'aac' } });
+    for (let s = 0; s < n; s += 4800) {
+      const k = Math.min(4800, n - s), d = new Float32Array(k * 2); d.set(L.subarray(s, s + k), 0); d.set(Rr.subarray(s, s + k), k);
+      enc.encode(new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: k, numberOfChannels: 2, timestamp: Math.round(s / SR * 1e6), data: d }));
+    }
+    await enc.flush(); enc.close(); if (err) throw err;
+    if (!asc) asc = new Uint8Array([0x11, 0x90]);
+    if (out.length * 1024 < n - 2048) throw new Error(`the AAC encoder returned ${(out.length * 1024 / SR).toFixed(1)} s of ${(n / SR).toFixed(1)} s; try Sound format: uncompressed PCM`);
+    return { kind: 'audio', codec: 'aac', sampleRate: SR, channels: 2, timescale: SR, asc, samples: out, bitrate: 192000 };
+  }
+  // o = { frame:'16x9'|'4x3', stems:{music,fx,voice}, caps, osd, sound:'auto'|'pcm'|'aac', frames?(test), onProgress }
+  async function exportMP4(o) {
+    const F = window.__film, cv = F.canvas, [w, h] = o.frame === '4x3' ? [1440, 1080] : [1920, 1080];
+    const codec = await pickVideo(w, h); if (!codec) return realtime(o);
+    const sound = await resolveSound(o.sound), fps = 30, total = Math.round(Story.DUR * fps), n = o.frames ? Math.min(o.frames, total) : total;
+    const ow = cv.width, oh = cv.height; cv.width = w; cv.height = h; F.busy = true;
+    try {
+      const samples = []; let desc = null, err = null;
+      const enc = new VideoEncoder({ output: (c, m) => { const d = new Uint8Array(c.byteLength); c.copyTo(d); if (!desc && m && m.decoderConfig && m.decoderConfig.description) desc = u8of(m.decoderConfig.description); samples.push({ data: d, dur: 1000, key: c.type === 'key' }); }, error: e => err = e });
+      enc.configure(vcfg(codec, w, h));
+      for (let i = 0; i < n; i++) {
+        if (err) throw err;
+        F.renderAt(i / fps, { caps: o.caps, osd: o.osd, fill: false });
+        const fr = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+        enc.encode(fr, { keyFrame: i % 60 === 0 }); fr.close();
+        while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 2));
+        if (i % 10 === 0) { o.onProgress && o.onProgress(i / n, `Rendering frame ${i + 1} of ${n}`); await new Promise(r => setTimeout(r, 0)); }
+      }
+      await enc.flush(); enc.close(); if (err) throw err;
+      o.onProgress && o.onProgress(1, 'Encoding sound');
+      let [L, Rr] = Snd.mixdown(o.stems); const an = Math.round(n / fps * 48000); L = L.subarray(0, an); Rr = Rr.subarray(0, an);
+      const audio = await encodeAudio(L, Rr, sound);
+      const video = codec.startsWith('avc') ? { kind: 'video', codec: 'avc', width: w, height: h, timescale: 30000, description: desc, samples } : { kind: 'video', codec: 'vp9', width: w, height: h, timescale: 30000, samples };
+      if (video.codec === 'avc' && !desc) throw new Error('the H.264 encoder gave no decoder configuration');
+      const bytes = Mux.build([video, audio]), blob = new Blob([bytes], { type: 'video/mp4' });
+      const name = `${Story.SLUG}${suffix(o)}.mp4`; await save(name, blob);
+      return { name, size: blob.size, video: vName(codec), sound: sName(sound), frames: n };
+    } finally { cv.width = ow; cv.height = oh; F.busy = false; F.dirty = true; }
+  }
+  // fallback: record the canvas and the soundtrack in real time
+  async function realtime(o) {
+    const F = window.__film, cv = F.canvas, ac = new AudioContext({ sampleRate: 48000 });
+    const [L, Rr] = Snd.mixdown(o.stems), buf = ac.createBuffer(2, L.length, 48000); buf.copyToChannel(L, 0); buf.copyToChannel(Rr, 1);
+    const src = ac.createBufferSource(); src.buffer = buf; const dst = ac.createMediaStreamDestination(); src.connect(dst);
+    const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dst.stream.getAudioTracks()]);
+    const mime = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 14e6 }), parts = []; rec.ondataavailable = e => e.data.size && parts.push(e.data);
+    await ac.resume();   // a suspended context records silence
+    const done = new Promise(r => rec.onstop = r); rec.start(250); const t0 = ac.currentTime; src.start();
+    F.busy = true;
+    await new Promise(res => { const tick = () => { const t = ac.currentTime - t0; if (t >= Story.DUR) return res(); F.renderAt(t, { caps: o.caps, osd: o.osd, fill: false }); o.onProgress && o.onProgress(t / Story.DUR, 'Recording in real time'); requestAnimationFrame(tick); }; tick(); });
+    rec.stop(); await done; F.busy = false; F.dirty = true; ac.close();
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm', blob = new Blob(parts, { type: mime || 'video/webm' }), name = `${Story.SLUG}${suffix(o)}-realtime.${ext}`;
+    await save(name, blob); return { name, size: blob.size, video: 'browser recording', sound: 'browser recording' };
+  }
+  async function saveWav(stems) { const [L, Rr] = Snd.mixdown(stems); const name = `${Story.SLUG}-soundtrack${['music', 'fx', 'voice'].filter(k => !stems[k]).map(k => '-no' + k).join('')}.wav`; await save(name, Snd.wav(L, Rr)); return name; }
+  async function savePNG(t, o) {
+    const F = window.__film; F.renderAt(t, o);
+    const blob = await new Promise(r => F.canvas.toBlob(r, 'image/png')); F.dirty = true;
+    const m = Math.floor(t / 60), s = (t - m * 60).toFixed(2).padStart(5, '0');
+    const name = `${Story.SLUG}-${m}m${s}s${o.fill ? '-fill16x9' : ''}${o.osd ? '' : '-noosd'}${o.caps ? '' : '-nocaps'}.png`;
+    await save(name, blob); return name;
+  }
+  return { exportMP4, saveWav, savePNG, describe, save, pickVideo, resolveSound };
+})();
+
+// ---------- main.js : render loop, playback, UI wiring (reusable as is) ----------
+(async () => {
+  const { clamp, seg, env, hash, lerp, ss, TUNE } = Util, $ = id => document.getElementById(id);
+  const S = Story, U = S.unwarp, status = msg => { $('status').textContent = msg; };
+  const cv = $('film'); cv.width = 1920; cv.height = 1080;
+  const gl = cv.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true, alpha: false });
+  if (!gl || !gl.getExtension('EXT_color_buffer_float')) { status('This browser cannot run the film: it needs WebGL 2 with float render targets.'); return; }
+  try { await Promise.race([Promise.all(["600 42px 'IBM Plex Mono'", "400 16px 'IBM Plex Sans'", "700 16px 'IBM Plex Sans'"].map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
+  status('Building the scene');
+  World.init(gl); Post.init(gl); VHS.init(gl); Rig.init(S); Rig.buildExposure(World);
+  const overlayTex = () => Util.texture(gl, 2, 2, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE, filter: gl.LINEAR });
+  const osdTex = overlayTex(), capTex = overlayTex();
+  const upload = (tex, canvas) => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); };
+  let lastCaps = null;
+  const NEAR = .03, FAR = 160, recOff = U(S.T.recOff), rollIn = U(S.T.rollIn), tear = S.T.tear && S.T.tear.map(U);
+
+  // ---------- one frame ----------
+  // o.caps / o.osd / o.fill override the on-screen toggles (export and PNG use their own checkboxes)
+  function renderAt(t, o = {}) {
+    const caps = o.caps ?? ui.caps.checked, osd = o.osd ?? ui.osd.checked, fill = (o.fill ?? ui.fill.checked) && !F.busy && cv.width / cv.height > 1.5;
+    const tv = Math.min(t, recOff + .02), p = Rig.pose(tv);   // picture freezes when REC stops
+    const sw = fill ? 1024 : 720, sh = 540, s = Post.targets(gl, sw, sh);
+    const vf = 2 * Math.atan(Math.tan(p.fov * Math.PI / 360) / (4 / 3));
+    const VP = Util.mulMat(Util.perspective(vf, sw / sh, NEAR, FAR), Util.viewMatrix(p.pos, Util.camBasis(p.yaw, p.pitch, p.roll)));
+    F.VP = VP; F.pose = p;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, s.scene.fb); gl.viewport(0, 0, sw, sh);
+    const fc = TUNE.fogCol; gl.clearColor(fc[0] * .2, fc[1] * .2, fc[2] * .2, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); World.draw(gl, VP, p.pos, tv); gl.disable(gl.DEPTH_TEST);
+    const hf = p.fov * Math.PI / 180, mb = clamp(Math.abs(p.yawRate) / 60 / hf - .004, 0, .03) * Math.sign(-p.yawRate);   // 1/60 s shutter
+    Post.run(gl, s, { expo: TUNE.expo * Rig.exposure(tv), focus: p.focus, aper: p.aper, fov: p.fov, near: NEAR, far: FAR, mb });
+    if (OSD.draw(t)) upload(osdTex, OSD.canvas);
+    if (lastCaps !== caps) { Subs.reset(); lastCaps = caps; }
+    if (Subs.draw(t, caps)) upload(capTex, Subs.canvas);
+    // tape state
+    const tp = S.tape(t); let track = 0, roll = 0;
+    if (t < rollIn + .5) { const k = 1 - seg(t, rollIn, rollIn + .5); track = k; roll = k * k * .4; }
+    if (tear) { track = Math.max(track, env(t, tear[0], tear[1], .08, .25)); if (t > tear[0] && t < tear[1]) roll = (hash(Math.floor(t * 30) * .7) - .5) * .12 * (1 - seg(t, tear[1] - .2, tear[1])); }
+    if (t > recOff) track = Math.max(track, seg(t, recOff, recOff + .15));
+    const awb = ss(seg(t, rollIn, rollIn + 1.8)), fear = p.fear;   // white balance settles after power-on
+    const u = { res: [cv.width, cv.height], src: [720, 540], frame: Math.floor(t * 30),
+      tint: [lerp(.78, 1, awb) * (1 + .02 * fear), lerp(.92, 1, awb) * (1 - .02 * fear), lerp(1.45, .97, awb) * (1 + .04 * Math.sin(t * .31))],
+      gain: Rig.gain(tv) + (tp.rec ? 0 : .04), sharp: TUNE.sharp, lumaW: TUNE.lumaW, chromaW: TUNE.chromaW, chromaShift: TUNE.chromaShift, sat: TUNE.sat,
+      jitter: TUNE.jitter * (1 + fear), track, roll, barrel: TUNE.barrel, vig: TUNE.vig, black: TUNE.black, smear: TUNE.smear,
+      dropout: TUNE.dropout * (.35 + 1.4 * fear + (tear && t > tear[0] - 1 && t < tear[1] + 2 ? 2 : 0)), off: tp.off, snow: tp.snow ? 1 : 0,
+      uPad: fill ? (1024 / 720 - 1) / 2 : 0, overscan: fill ? .04 : 0, osdOn: osd ? 1 : 0, capOn: 1, skew: clamp(p.yawRate * .0035, -.012, .012), scan: TUNE.scan };
+    VHS.run(gl, { tScene: s.out.color, tOSD: osdTex, tCap: capTex }, u, { fb: null, w: cv.width, h: cv.height });
+  }
+
+  // ---------- UI ----------
+  const ui = { caps: $('caps'), osd: $('osd'), fill: $('fill') };
+  const F = window.__film = { canvas: cv, renderAt, TUNE, Story: S, World, Rig, Snd, Exporter, Mux, ready: false, busy: false, dirty: true, t: 0,
+    project: p3 => { const r = Util.project(F.VP, p3); return { ndc: r, inFront: r[3] > 0 }; } };
+  const scrub = $('scrub'), tc = $('tc'), play = $('play');
+  scrub.max = S.DUR; scrub.step = 1 / 30;
+  const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
+  let ac = null, srcNode = null, playing = false, t0 = 0, buf = null;
+  const setT = t => { F.t = clamp(t, 0, S.DUR); scrub.value = F.t; tc.textContent = `${fmt(F.t)} / ${fmt(S.DUR)}`; F.dirty = true; };
+  function stopAudio() { if (srcNode) { try { srcNode.stop(); } catch (e) { } srcNode.disconnect(); srcNode = null; } }
+  function makeBuffer() { const [L, Rr] = Snd.mixdown({ music: 1, fx: 1, voice: 1 }); ac = ac || new AudioContext({ sampleRate: 48000 }); buf = ac.createBuffer(2, L.length, 48000); buf.copyToChannel(L, 0); buf.copyToChannel(Rr, 1); }
+  async function startAudio() { if (!buf) return; await ac.resume(); stopAudio(); srcNode = ac.createBufferSource(); srcNode.buffer = buf; srcNode.connect(ac.destination); srcNode.start(0, F.t); t0 = ac.currentTime - F.t; }
+  async function toggle() {
+    if (!F.ready || F.busy) return;
+    playing = !playing; play.textContent = playing ? 'Pause' : 'Play'; play.setAttribute('aria-pressed', playing);
+    if (playing) { if (F.t >= S.DUR - .05) setT(0); await startAudio(); } else stopAudio();
+  }
+  play.onclick = toggle;
+  scrub.oninput = () => { setT(+scrub.value); if (playing) startAudio(); };
+  for (const k of ['caps', 'osd', 'fill']) ui[k].onchange = () => F.dirty = true;
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox' && e.target.type !== 'radio') return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { if (e.target === scrub) return; e.preventDefault(); setT(F.t + (e.code === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 5 : 1 / 30)); if (playing) startAudio(); }
+  });
+  function loop() {
+    if (!F.busy) {
+      if (playing && ac) { const t = ac.currentTime - t0; if (t >= S.DUR) { setT(S.DUR); playing = false; play.textContent = 'Play'; stopAudio(); } else setT(t); }
+      if (F.dirty) { F.dirty = false; renderAt(F.t); }
+    }
+    requestAnimationFrame(loop);
+  }
+  // export panel
+  const ex = () => ({ frame: document.querySelector('input[name=frame]:checked').value, stems: { music: $('st-music').checked, fx: $('st-fx').checked, voice: $('st-voice').checked },
+    caps: $('ex-caps').checked, osd: $('ex-osd').checked, sound: $('ex-sound').value });
+  const hint = async () => { $('ex-hint').textContent = await Exporter.describe(ex().frame, ex().sound) + ' Save frame (PNG) uses the captions and camera display boxes here.'; };
+  document.querySelectorAll('#export input, #export select').forEach(el => el.addEventListener('change', hint));
+  const bar = $('progress'), exStatus = $('ex-status');
+  const busyUI = on => { ['export-mp4', 'save-wav', 'save-png', 'play'].forEach(id => $(id).disabled = on); };
+  $('export-mp4').onclick = async () => {
+    const o = ex(); if (!o.stems.music && !o.stems.fx && !o.stems.voice) { exStatus.textContent = 'Pick at least one sound stem, or the file will be silent.'; }
+    if (playing) await toggle(); busyUI(true); bar.hidden = false; bar.value = 0;
+    try { const r = await Exporter.exportMP4({ ...o, onProgress: (f, m) => { bar.value = f; exStatus.textContent = m; } }); exStatus.textContent = `Saved ${r.name} (${(r.size / 1048576).toFixed(1)} MB, ${r.video} video, ${r.sound} sound).`; }
+    catch (e) { console.error(e); exStatus.textContent = 'Export stopped: ' + e.message; }
+    finally { busyUI(false); bar.hidden = true; }
+  };
+  $('save-wav').onclick = async () => { const n = await Exporter.saveWav(ex().stems); exStatus.textContent = `Saved ${n}.`; };
+  $('save-png').onclick = async () => { const o = ex(), n = await Exporter.savePNG(F.t, { caps: o.caps, osd: o.osd, fill: ui.fill.checked }); exStatus.textContent = `Saved ${n}.`; };
+  // voice recordings + cue sheet
+  function cueSheet() {
+    $('cues').innerHTML = S.LINES.map(l => `<tr><td class="mono">${fmt(U(l.t))}</td><td>${l.who === 'PA' ? 'PA speaker' : 'Operator'}</td><td class="mono">${l.id}</td><td>${l.text}</td><td>${Snd.hasRecording(l.id) ? 'Recording' : 'Placeholder'} <span class="mono dim">${Snd.voiceDur(l.id).toFixed(1)} s</span></td></tr>`).join('');
+  }
+  $('voices').onchange = async e => {
+    const files = [...e.target.files], ids = new Set(S.LINES.map(l => l.id)); let n = 0; const skipped = [];
+    status('Loading recordings');
+    for (const f of files) { const id = f.name.replace(/\.[^.]+$/, ''); if (!ids.has(id)) { skipped.push(f.name); continue; } try { await Snd.loadRecording(id, await f.arrayBuffer()); n++; } catch (err) { skipped.push(f.name); } }
+    await rebuildSound(); cueSheet();
+    status(`Loaded ${n} recording${n === 1 ? '' : 's'}.` + (skipped.length ? ` Skipped ${skipped.join(', ')}: name each file after its line id (for example ${S.LINES[0].id}.wav).` : ''));
+  };
+  async function rebuildSound() {
+    const was = playing; if (playing) await toggle();
+    status('Building the soundtrack'); await new Promise(r => setTimeout(r, 30));
+    const st = Snd.render(); Subs.build(Snd.voiceDur); Subs.reset(); makeBuffer(); F.dirty = true;
+    $('mixinfo').textContent = `Mix ${st.lufs} LUFS, peak ${st.peak} dBFS. Speech ${st.speechRms} dB against bed ${st.bedRmsUnderSpeech} dB.`;
+    if (was) toggle();
+    return st;
+  }
+  setT(0); renderAt(0); requestAnimationFrame(loop);
+  await rebuildSound(); cueSheet(); hint();
+  F.ready = true; play.disabled = false; status('Ready. Space plays and pauses; arrow keys step a frame, Shift for five seconds.');
+})();
+
+</script>
+</body></html>
